@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flappy Cakes Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background: #87ceeb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <script type="module">
+    import { Application, Container, Graphics, Sprite, Assets } from 'https://cdn.jsdelivr.net/npm/pixi.js@8.0.0/dist/pixi.min.mjs';
+
+    const GAME_WIDTH = 800;
+    const GAME_HEIGHT = 450;
+    const PIPE_WIDTH = 80;
+    const PIPE_GAP = 200;
+    const PLAYER_RADIUS = 12;
+
+    class GameRenderer {
+      constructor(container) {
+        this.app = new Application();
+        this.stage = new Container();
+        this.players = new Map();
+        this.pipes = [];
+        this.localPlayerId = null;
+        this.playerX = GAME_WIDTH / 2;
+        this.init(container);
+      }
+
+      async init(container) {
+        await this.app.init({
+          width: GAME_WIDTH,
+          height: GAME_HEIGHT,
+          backgroundColor: 0x87ceeb,
+          antialias: true,
+        });
+
+        container.appendChild(this.app.canvas);
+        this.app.stage.addChild(this.stage);
+
+        // Background
+        this.background = new Graphics();
+        this.background.rect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        this.background.fill(0x87ceeb);
+        this.background.rect(0, GAME_HEIGHT - 50, GAME_WIDTH, 50);
+        this.background.fill(0x8b7355);
+        this.stage.addChild(this.background);
+      }
+
+      setLocalPlayerId(playerId) {
+        this.localPlayerId = playerId;
+        console.log('Set local player ID:', playerId);
+      }
+
+      async updateAllPlayers(serverPlayers) {
+        for (const serverPlayer of serverPlayers) {
+          const isLocal = serverPlayer.id === this.localPlayerId;
+          await this.updateOrCreatePlayer(serverPlayer.id, serverPlayer.y, serverPlayer.alive, isLocal);
+        }
+
+        // Remove players no longer in game
+        const currentPlayerIds = new Set(serverPlayers.map(p => p.id));
+        for (const [playerId, player] of this.players.entries()) {
+          if (!currentPlayerIds.has(playerId)) {
+            this.stage.removeChild(player.sprite);
+            this.players.delete(playerId);
+          }
+        }
+      }
+
+      async updateOrCreatePlayer(playerId, y, alive, isLocal) {
+        if (!this.players.has(playerId)) {
+          const container = new Container();
+          const texture = await Assets.load('/flappy-bird.png');
+          const bird = new Sprite(texture);
+
+          bird.width = 24;
+          bird.height = 24;
+          bird.anchor.set(0.5, 0.5);
+
+          container.addChild(bird);
+          this.stage.addChild(container);
+
+          this.players.set(playerId, {
+            id: playerId,
+            sprite: container,
+            x: this.playerX,
+            y: y,
+            alive
+          });
+        }
+
+        const player = this.players.get(playerId);
+        player.y = y;
+        player.alive = alive;
+        player.sprite.position.set(this.playerX, y);
+
+        if (isLocal) {
+          player.sprite.alpha = alive ? 1.0 : 0.5;
+        } else {
+          player.sprite.alpha = alive ? 0.3 : 0.15;
+        }
+        player.sprite.visible = true;
+      }
+
+      setPipes(serverPipes) {
+        // Clear existing pipes
+        for (const pipe of this.pipes) {
+          if (pipe.graphics) {
+            this.stage.removeChild(pipe.graphics);
+          }
+        }
+        this.pipes = [];
+
+        // Create pipes from server state
+        for (const serverPipe of serverPipes) {
+          const pipeGraphics = new Graphics();
+
+          // Top pipe
+          pipeGraphics.rect(0, 0, PIPE_WIDTH, serverPipe.gapY);
+          pipeGraphics.fill(0x228b22);
+          pipeGraphics.stroke({ color: 0x1a6b1a, width: 2 });
+
+          // Bottom pipe
+          pipeGraphics.rect(
+            0,
+            serverPipe.gapY + PIPE_GAP,
+            PIPE_WIDTH,
+            GAME_HEIGHT - (serverPipe.gapY + PIPE_GAP)
+          );
+          pipeGraphics.fill(0x228b22);
+          pipeGraphics.stroke({ color: 0x1a6b1a, width: 2 });
+
+          pipeGraphics.position.x = serverPipe.x;
+          this.stage.addChild(pipeGraphics);
+          this.pipes.push({ x: serverPipe.x, gapY: serverPipe.gapY, graphics: pipeGraphics });
+        }
+      }
+
+      reset() {
+        // Clear pipes
+        for (const pipe of this.pipes) {
+          if (pipe.graphics) {
+            this.stage.removeChild(pipe.graphics);
+          }
+        }
+        this.pipes = [];
+
+        // Clear players
+        for (const [playerId, player] of this.players.entries()) {
+          this.stage.removeChild(player.sprite);
+        }
+        this.players.clear();
+      }
+    }
+
+    // WebSocket client
+    class GameClient {
+      constructor() {
+        this.ws = null;
+        this.playerId = null;
+        this.roomCode = null;
+        this.listeners = new Map();
+      }
+
+      on(event, callback) {
+        if (!this.listeners.has(event)) {
+          this.listeners.set(event, []);
+        }
+        this.listeners.get(event).push(callback);
+      }
+
+      emit(event, data) {
+        const callbacks = this.listeners.get(event);
+        if (callbacks) {
+          callbacks.forEach(cb => cb(data));
+        }
+      }
+
+      connect(url, roomCode) {
+        this.roomCode = roomCode;
+        this.ws = new WebSocket(url);
+
+        this.ws.onopen = () => {
+          console.log('Connected to server');
+          this.send({ type: 'join', roomCode: this.roomCode });
+        };
+
+        this.ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          this.handleMessage(data);
+        };
+
+        this.ws.onerror = (err) => {
+          console.error('WebSocket error:', err);
+        };
+
+        this.ws.onclose = () => {
+          console.log('Disconnected from server');
+        };
+      }
+
+      handleMessage(data) {
+        switch (data.type) {
+          case 'joined':
+            this.playerId = data.playerId;
+            this.emit('joined', data);
+            break;
+          case 'gameStart':
+            this.emit('gameStart', data);
+            break;
+          case 'gameState':
+            this.emit('gameState', data);
+            break;
+          case 'gameOver':
+            this.emit('gameOver', data);
+            break;
+        }
+      }
+
+      send(message) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify(message));
+        }
+      }
+
+      sendInput(jumping) {
+        this.send({ type: 'input', jumping });
+      }
+    }
+
+    // Get room code from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room');
+
+    if (!roomCode) {
+      document.body.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Missing room code. Use ?room=XXXX</div>';
+    } else {
+      // Initialize game
+      const container = document.getElementById('game-container');
+      const renderer = new GameRenderer(container);
+      const gameClient = new GameClient();
+
+      let spacePressed = false;
+      let isPlaying = false;
+
+      // Input handlers
+      const handleKeyDown = (e) => {
+        if (e.code === 'Space' && !spacePressed && isPlaying) {
+          spacePressed = true;
+          gameClient.sendInput(true);
+          e.preventDefault();
+        }
+      };
+
+      const handleKeyUp = (e) => {
+        if (e.code === 'Space' && spacePressed) {
+          spacePressed = false;
+          gameClient.sendInput(false);
+        }
+      };
+
+      const handleTouchStart = () => {
+        if (isPlaying) gameClient.sendInput(true);
+      };
+
+      const handleTouchEnd = () => {
+        if (isPlaying) gameClient.sendInput(false);
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+      document.body.addEventListener('touchstart', handleTouchStart);
+      document.body.addEventListener('touchend', handleTouchEnd);
+      document.body.addEventListener('mousedown', handleTouchStart);
+      document.body.addEventListener('mouseup', handleTouchEnd);
+
+      // Game events
+      gameClient.on('joined', (data) => {
+        console.log('Joined room:', data);
+        if (gameClient.playerId) {
+          renderer.setLocalPlayerId(gameClient.playerId);
+        }
+      });
+
+      gameClient.on('gameStart', () => {
+        console.log('Game started');
+        isPlaying = true;
+        renderer.reset();
+        if (gameClient.playerId) {
+          renderer.setLocalPlayerId(gameClient.playerId);
+        }
+      });
+
+      gameClient.on('gameState', (data) => {
+        renderer.updateAllPlayers(data.players);
+        renderer.setPipes(data.pipes);
+      });
+
+      gameClient.on('gameOver', (data) => {
+        console.log('Game over:', data);
+        isPlaying = false;
+      });
+
+      // Connect to server
+      gameClient.connect('ws://35.226.50.128/ws', roomCode);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfplan
+terraform/.terraform.tfstate.lock.info
+
+# Environment variables
+.env
+.env.local
+*.env
+
+# Deno
+server/deno.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Docker
+*.pid
+
+CLAUDE.md
+.mcp.json
+.claude
+node_modules
+
+*.tfstate
+*.tfstate.*

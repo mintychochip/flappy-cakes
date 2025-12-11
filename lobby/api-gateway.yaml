@@ -1,0 +1,110 @@
+swagger: '2.0'
+info:
+  title: Flappy Royale Lobby API
+  description: API Gateway for Flappy Royale lobby functions
+  version: 1.0.0
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /api/rooms:
+    post:
+      summary: Create a new room
+      operationId: createRoom
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/createRoom
+        protocol: h2
+      responses:
+        '201':
+          description: Room created
+    options:
+      summary: CORS preflight for create room
+      operationId: createRoomOptions
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/createRoom
+        protocol: h2
+      responses:
+        '200':
+          description: CORS response
+  /api/rooms/get:
+    get:
+      summary: Get room by code
+      operationId: getRoom
+      parameters:
+        - in: query
+          name: code
+          type: string
+          required: true
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/getRoom
+        protocol: h2
+      responses:
+        '200':
+          description: Room details
+    options:
+      summary: CORS preflight for get room
+      operationId: getRoomOptions
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/getRoom
+        protocol: h2
+      responses:
+        '200':
+          description: CORS response
+  /api/rooms/join:
+    post:
+      summary: Join a room
+      operationId: joinRoom
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/joinRoom
+        protocol: h2
+      responses:
+        '200':
+          description: Joined room
+    options:
+      summary: CORS preflight for join room
+      operationId: joinRoomOptions
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/joinRoom
+        protocol: h2
+      responses:
+        '200':
+          description: CORS response
+  /api/rooms/leave:
+    post:
+      summary: Leave a room
+      operationId: leaveRoom
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/leaveRoom
+        protocol: h2
+      responses:
+        '200':
+          description: Left room
+    options:
+      summary: CORS preflight for leave room
+      operationId: leaveRoomOptions
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/leaveRoom
+        protocol: h2
+      responses:
+        '200':
+          description: CORS response
+  /api/rooms/state:
+    put:
+      summary: Update room state
+      operationId: updateRoomState
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/updateRoomState
+        protocol: h2
+      responses:
+        '200':
+          description: Room state updated
+    options:
+      summary: CORS preflight for update state
+      operationId: updateRoomStateOptions
+      x-google-backend:
+        address: https://us-central1-flappy-cakes.cloudfunctions.net/updateRoomState
+        protocol: h2
+      responses:
+        '200':
+          description: CORS response

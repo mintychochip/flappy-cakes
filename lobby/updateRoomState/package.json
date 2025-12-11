@@ -1,0 +1,11 @@
+{
+  "name": "flappy-royale-updateroomstate",
+  "version": "1.0.0",
+  "description": "Cloud Function updateRoomState",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/firestore": "^7.1.0",
+    "@google-cloud/functions-framework": "^3.3.0"
+  }
+}

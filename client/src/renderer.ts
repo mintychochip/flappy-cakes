@@ -482,8 +482,8 @@ export class GameRenderer {
                     player.sprite.alpha = alive ? 1.0 : 0.5;
                     player.nameText.alpha = alive ? 1.0 : 0.5;
                 } else {
-                    player.sprite.alpha = alive ? 0.5 : 0.25;
-                    player.nameText.alpha = alive ? 0.7 : 0.3;
+                    player.sprite.alpha = alive ? 0.3 : 0.15;
+                    player.nameText.alpha = alive ? 0.4 : 0.2;
                 }
                 player.sprite.visible = true;
                 return;
@@ -621,8 +621,8 @@ export class GameRenderer {
                 console.log(`   Child ${i} (${child.constructor.name}): alpha=${child.alpha}, worldAlpha=${child.worldAlpha}, visible=${child.visible}`);
             });
         } else {
-            playerData.sprite.alpha = alive ? 0.5 : 0.25;
-            playerData.nameText.alpha = alive ? 0.7 : 0.3;
+            playerData.sprite.alpha = alive ? 0.3 : 0.15;
+            playerData.nameText.alpha = alive ? 0.4 : 0.2;
             console.log(`👻 Created GHOST player - sprite alpha: ${playerData.sprite.alpha}, name color: ${playerData.nameText.style.fill}`);
         }
         playerData.sprite.visible = true;

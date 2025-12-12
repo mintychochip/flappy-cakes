@@ -1,20 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { createRoom, joinRoom } from '../services/lobbyService'
+import { CHARACTERS, DEFAULT_CHARACTER, type Character } from '../config/characters'
 
 export default function Home() {
   const [mode, setMode] = useState<'host' | 'join' | null>(null)
   const [roomCode, setRoomCode] = useState('')
   const [playerName, setPlayerName] = useState('')
+  const [selectedCharacter, setSelectedCharacter] = useState<Character>(DEFAULT_CHARACTER)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // Load saved name on mount
+  // Load saved name and character on mount
   useEffect(() => {
     const savedName = localStorage.getItem('flappyPlayerName')
     if (savedName) {
       setPlayerName(savedName)
+    }
+    const savedCharacterId = localStorage.getItem('flappyCharacterId')
+    if (savedCharacterId) {
+      const character = CHARACTERS.find(c => c.id === savedCharacterId)
+      if (character) {
+        setSelectedCharacter(character)
+      }
     }
   }, [])
 
@@ -27,9 +36,10 @@ export default function Home() {
     setLoading(true)
     setError('')
     try {
-      // Store name in localStorage
+      // Store name and character in localStorage
       const cleanName = playerName.trim()
       localStorage.setItem('flappyPlayerName', cleanName)
+      localStorage.setItem('flappyCharacterId', selectedCharacter.id)
 
       const room = await createRoom(cleanName)
       navigate(`/lobby/${room.code}`)
@@ -50,9 +60,10 @@ export default function Home() {
     setLoading(true)
     setError('')
     try {
-      // Store name in localStorage
+      // Store name and character in localStorage
       const cleanName = playerName.trim()
       localStorage.setItem('flappyPlayerName', cleanName)
+      localStorage.setItem('flappyCharacterId', selectedCharacter.id)
 
       await joinRoom(roomCode.toUpperCase(), cleanName)
       navigate(`/lobby/${roomCode.toUpperCase()}`)
@@ -107,6 +118,38 @@ export default function Home() {
                     maxLength={20}
                     className="w-full px-4 py-3 text-xl border-4 border-black rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 bg-white"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-purple-900 font-bold text-lg mb-2">
+                    CHOOSE YOUR CHARACTER
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {CHARACTERS.map((character) => (
+                      <button
+                        key={character.id}
+                        type="button"
+                        onClick={() => setSelectedCharacter(character)}
+                        className={`p-3 border-4 border-black bg-white hover:bg-yellow-200 transition-colors ${
+                          selectedCharacter.id === character.id
+                            ? 'ring-4 ring-blue-500 bg-yellow-200'
+                            : ''
+                        }`}
+                        title={character.description}
+                      >
+                        <div className="aspect-square bg-gray-200 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={character.sprite}
+                            alt={character.name}
+                            className="w-full h-full object-contain p-2"
+                          />
+                        </div>
+                        <div className="text-xs font-bold text-purple-900 text-center">
+                          {character.name}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <button

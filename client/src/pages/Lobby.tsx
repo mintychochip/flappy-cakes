@@ -13,8 +13,9 @@ export default function Lobby() {
   const [isHost, setIsHost] = useState(false)
   const [error, setError] = useState('')
 
-  // Load saved name from localStorage
+  // Load saved name and character from localStorage
   const savedName = localStorage.getItem('flappyPlayerName') || 'Anonymous'
+  const savedCharacterId = localStorage.getItem('flappyCharacterId') || 'cupcake'
 
   // Define event handlers
   const handleJoined = (data: any) => {
@@ -83,7 +84,7 @@ export default function Lobby() {
     // Only connect if not already connected
     if (!gameClient.playerId) {
       console.log('Connecting to WebSocket server...')
-      gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName)
+      gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName, savedCharacterId)
     } else {
       console.log('Already connected, skipping WebSocket connection')
       setConnected(true)

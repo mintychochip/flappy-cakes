@@ -6,6 +6,7 @@ export class GameClient {
     private ws: WebSocket | null = null;
     public playerId: string | null = null;
     private playerName: string | null = null;
+    private characterId: string | null = null;
     private roomId: string | null = null;
     private roomCode: string | null = null;
     private listeners: Map<string, EventCallback[]> = new Map();
@@ -65,12 +66,18 @@ export class GameClient {
         return this.pipesPassed;
     }
 
-    connect(url: string, roomCode?: string, playerName?: string) {
+    connect(url: string, roomCode?: string, playerName?: string, characterId?: string) {
         if (roomCode) {
             this.roomCode = roomCode;
         }
         if (playerName) {
             this.playerName = playerName;
+        }
+        if (characterId) {
+            this.characterId = characterId;
+        } else {
+            // Load from localStorage if not provided
+            this.characterId = localStorage.getItem('flappyCharacterId') || 'cupcake';
         }
 
         // Use base WebSocket URL - room code is sent in the message
@@ -85,7 +92,8 @@ export class GameClient {
                 this.send({
                     type: 'join',
                     roomCode: this.roomCode,
-                    playerName: this.playerName || 'Anonymous'
+                    playerName: this.playerName || 'Anonymous',
+                    characterId: this.characterId
                 });
             };
 

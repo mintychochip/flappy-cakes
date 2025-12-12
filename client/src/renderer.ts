@@ -391,18 +391,18 @@ export class GameRenderer {
         this.playerContainer.visible = alive;
     }
 
-    updateAllPlayers(serverPlayers: Array<{ id: string; name: string; y: number; score: number; alive: boolean }>) {
+    updateAllPlayers(serverPlayers: Array<{ id: string; name: string; y: number; score: number; alive: boolean; characterId?: string }>) {
         // Update or create all players
         for (const serverPlayer of serverPlayers) {
             const isLocal = serverPlayer.id === this.localPlayerId;
 
             // Only log occasionally to reduce spam
       if (Math.random() < 0.01) { // 1% chance to log
-        console.log(`Player ${serverPlayer.name} (${serverPlayer.id.substring(0, 6)}): isLocal=${isLocal}`);
+        console.log(`Player ${serverPlayer.name} (${serverPlayer.id.substring(0, 6)}): isLocal=${isLocal}, character=${serverPlayer.characterId}`);
       }
 
             // Render all players through the same system
-            this.updateOrCreatePlayer(serverPlayer.id, serverPlayer.name, serverPlayer.y, serverPlayer.alive, isLocal);
+            this.updateOrCreatePlayer(serverPlayer.id, serverPlayer.name, serverPlayer.y, serverPlayer.alive, isLocal, serverPlayer.characterId);
         }
 
         // Remove players that are no longer in the game
@@ -414,7 +414,7 @@ export class GameRenderer {
         }
     }
 
-    private async updateOrCreatePlayer(playerId: string, name: string, y: number, alive: boolean, isLocal: boolean) {
+    private async updateOrCreatePlayer(playerId: string, name: string, y: number, alive: boolean, isLocal: boolean, characterId?: string) {
         if (!this.players.has(playerId)) {
             const container = new Container();
 
@@ -443,8 +443,9 @@ export class GameRenderer {
             shadow.fill({ color: 0x000000, alpha: 0.3 });
             container.addChild(shadow);
 
-            // Load and add bird sprite
-            const texture = await Assets.load('/flappy-bird.png');
+            // Load and add character sprite based on characterId
+            const spritePath = this.getCharacterSpritePath(characterId);
+            const texture = await Assets.load(spritePath);
             const bird = new Sprite(texture);
 
             bird.width = PLAYER_RADIUS * 2;
@@ -593,5 +594,20 @@ export class GameRenderer {
 
     private onResize() {
         this.calculateScale();
+    }
+
+    private getCharacterSpritePath(characterId?: string): string {
+        // Map character IDs to sprite paths
+        const characterSprites: Record<string, string> = {
+            'cupcake': '/characters/cupcake.png',
+            'donut': '/characters/donut.png',
+            'cookie': '/characters/cookie.png',
+            'macaron': '/characters/macaron.png',
+            'cake-slice': '/characters/cake-slice.png',
+            'ice-cream': '/characters/ice-cream.png'
+        };
+
+        // Return character sprite or fallback to default flappy-bird
+        return characterSprites[characterId || 'cupcake'] || '/flappy-bird.png';
     }
 }

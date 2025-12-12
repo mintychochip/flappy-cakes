@@ -5,6 +5,7 @@ export interface Player {
   y: number;
   alive: boolean;
   score: number;
+  characterId?: string; // Selected character ID
 }
 
 export interface Pipe {

@@ -18,9 +18,23 @@ export default function Lobby() {
   const [isHost, setIsHost] = useState(false)
   const [error, setError] = useState('')
   const gameStartedRef = useRef(false)
+  const [selectedSkin, setSelectedSkin] = useState('character1')
+
+  // Available skins
+  const skins = [
+    { id: 'character1', name: 'Character 1', image: '/flappy-bird.png' },
+  ]
 
   // Load saved name from localStorage
   const savedName = localStorage.getItem('flappyPlayerName') || 'Anonymous'
+
+  // Load saved skin on mount
+  useEffect(() => {
+    const savedSkin = localStorage.getItem('flappySkin')
+    if (savedSkin) {
+      setSelectedSkin(savedSkin)
+    }
+  }, [])
 
   // Define event handlers
   const handleJoined = async (data: any) => {
@@ -104,14 +118,15 @@ export default function Lobby() {
       // Only connect if not already connected
       if (!gameClient.playerId) {
         console.log('Connecting to WebSocket server...')
-        gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName)
+        gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName, selectedSkin)
       } else {
         console.log('Already connected, but rejoining room in case it was deleted')
         // Send a new join message to ensure we're in the room (in case it was deleted)
         gameClient.send({
           type: 'join',
           roomCode: roomCode?.toUpperCase(),
-          playerName: savedName
+          playerName: savedName,
+          skinId: selectedSkin
         })
         setConnected(true)
       }
@@ -222,6 +237,30 @@ export default function Lobby() {
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-4xl w-full">
+          {/* Skin Selection */}
+          <div className="bg-yellow-400 border-4 border-black p-6 mb-6 shadow-2xl">
+            <h2 className="text-2xl font-black text-purple-900 mb-4">CHOOSE YOUR CAKE</h2>
+            <div className="flex gap-4 justify-center">
+              {skins.map((skin) => (
+                <button
+                  key={skin.id}
+                  onClick={() => {
+                    setSelectedSkin(skin.id)
+                    localStorage.setItem('flappySkin', skin.id)
+                  }}
+                  className={`border-4 border-black p-4 w-32 h-32 flex flex-col items-center justify-center gap-2 transition-all ${
+                    selectedSkin === skin.id
+                      ? 'bg-purple-600 scale-110'
+                      : 'bg-purple-400 hover:bg-purple-500'
+                  }`}
+                >
+                  <img src={skin.image} alt={skin.name} className="w-12 h-12 object-contain" />
+                  <span className="text-white font-bold text-sm">{skin.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Players section */}
           <div className="bg-yellow-400 border-4 border-black p-8 mb-8 shadow-2xl">
             <div className="flex justify-between items-center mb-8">

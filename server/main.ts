@@ -19,6 +19,7 @@ interface Player {
   y: number;
   velocityY: number;
   jumping: boolean; // Current input state
+  skinId?: string;
 }
 
 interface Pipe {
@@ -170,7 +171,9 @@ function updateGame(room: GameRoom) {
       name: p.name,
       y: p.y,
       score: p.score,
-      alive: p.alive
+      alive: p.alive,
+      skinId: p.skinId,
+      jumping: p.jumping
     })),
     pipes: room.pipes.map(p => ({ x: p.x, gapY: p.gapY }))
   });
@@ -294,7 +297,8 @@ async function handleConnection(req: Request): Promise<Response> {
       alive: true,
       y: GAME_HEIGHT / 2,
       velocityY: 0,
-      jumping: false
+      jumping: false,
+      skinId: data.skinId || 'character1'
     };
 
     room.players.set(playerId!, player);
@@ -376,10 +380,10 @@ async function handleConnection(req: Request): Promise<Response> {
 
           // Only allow starting if waiting and has players
           if (room.state === "waiting" && room.players.size >= 1) {
-            console.log('✅ Starting game!');
+            console.log('✅ Starting game immediately!');
+            broadcast(room, { type: "gameStart" });
             room.state = "playing";
             room.gameStartTime = Date.now();
-            broadcast(room, { type: "gameStart" });
             startGameLoop(room);
           } else {
             console.log(`❌ Cannot start - state: ${room.state}, players: ${room.players.size}`);

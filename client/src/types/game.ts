@@ -5,6 +5,8 @@ export interface Player {
   y: number;
   alive: boolean;
   score: number;
+  skinId?: string;
+  jumping?: boolean;
 }
 
 export interface Pipe {

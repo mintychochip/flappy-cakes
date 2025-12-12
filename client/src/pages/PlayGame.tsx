@@ -50,17 +50,22 @@ export default function PlayGame() {
 
     // Keyboard input
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !spacePressed && isPlaying) {
-        spacePressed = true
-        gameClient.sendInput(true)
+      console.log(`🎹 Key pressed: ${e.code}, gameState=${gameState}`)
+      if (e.code === 'Space') {
         e.preventDefault()
+        if (!spacePressed) {
+          spacePressed = true
+          gameClient.sendInput(true)
+          console.log('✅ Space input sent!')
+        }
       }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && spacePressed) {
+      if (e.code === 'Space') {
         spacePressed = false
         gameClient.sendInput(false)
+        console.log('🔽 Space released!')
       }
     }
 
@@ -94,11 +99,12 @@ export default function PlayGame() {
     }
 
     const handleGameStart = () => {
-      console.log('🎮 handleGameStart called - resetting renderer')
+      console.log('🎮 handleGameStart called - starting immediately')
       setGameState('playing')
-      isPlaying = true
       setAlive(true)
       setScore(0)
+      isPlaying = true
+      console.log(`🎮 isPlaying set to ${isPlaying}`)
       if (gameRendererRef.current) {
         gameRendererRef.current.reset()
         // Ensure local player ID is set
@@ -189,10 +195,6 @@ export default function PlayGame() {
     gameClient.on('playerJoined', handlePlayerJoined)
     gameClient.on('gameOver', handleGameOver)
 
-    // Set initial state to playing (already connected from Lobby)
-    setGameState('playing')
-    isPlaying = true
-
     // Start animation loop for parallax and smooth rendering
     const gameLoop = () => {
       if (gameRendererRef.current && isPlaying) {
@@ -276,7 +278,7 @@ export default function PlayGame() {
             ref={canvasRef}
             className="cursor-pointer w-full h-full"
           />
-          {!alive && (
+          {!alive && gameState === 'playing' && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70">
               <div className="bg-red-600 border-4 border-black px-12 py-6">
                 <div className="text-white text-6xl font-black">YOU DIED</div>

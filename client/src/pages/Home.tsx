@@ -125,15 +125,6 @@ export default function Home() {
                 >
                   JOIN GAME
                 </button>
-
-                <div className="border-t-2 border-black pt-4">
-                  <Link
-                    to="/embed"
-                    className="block w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3 px-6 text-center border-4 border-black text-lg"
-                  >
-                    EMBED ON YOUR SITE
-                  </Link>
-                </div>
               </div>
             </div>
           ) : (
@@ -186,12 +177,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="bg-purple-800 border-t-4 border-black p-6 text-center">
-        <p className="text-yellow-400 font-bold text-lg">
-          Players join on their phones to play
-        </p>
-      </div>
     </div>
   )
 }

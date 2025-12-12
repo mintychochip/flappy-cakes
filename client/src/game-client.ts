@@ -13,6 +13,7 @@ export class GameClient {
     private maxReconnectAttempts = 5;
     private gameStartTime: number | null = null;
     private pipesPassed = 0;
+    public skinId: string = 'character1';
 
     on<T = any>(event: string, callback: EventCallback<T>) {
         if (!this.listeners.has(event)) {
@@ -65,18 +66,21 @@ export class GameClient {
         return this.pipesPassed;
     }
 
-    connect(url: string, roomCode?: string, playerName?: string) {
+    connect(url: string, roomCode?: string, playerName?: string, skinId?: string) {
         if (roomCode) {
             this.roomCode = roomCode;
         }
         if (playerName) {
             this.playerName = playerName;
         }
+        if (skinId) {
+            this.skinId = skinId;
+        }
 
         // Use base WebSocket URL - room code is sent in the message
         const wsUrl = url;
 
-        console.log(`🔌 GameClient.connect() called - roomCode: ${roomCode}, playerName: ${playerName}, existing playerId: ${this.playerId}`);
+        console.log(`🔌 GameClient.connect() called - roomCode: ${roomCode}, playerName: ${playerName}, skinId: ${skinId}, existing playerId: ${this.playerId}`);
 
         try {
             this.ws = new WebSocket(wsUrl);
@@ -87,7 +91,8 @@ export class GameClient {
                 this.send({
                     type: 'join',
                     roomCode: this.roomCode,
-                    playerName: this.playerName || 'Anonymous'
+                    playerName: this.playerName || 'Anonymous',
+                    skinId: this.skinId
                 });
             };
 

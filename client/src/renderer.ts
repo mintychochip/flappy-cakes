@@ -5,10 +5,13 @@ interface Player {
     name: string;
     sprite: Container;
     nameText: any; // PIXI.Text
+    birdSprite: Sprite; // The actual bird sprite to swap textures
     x: number;
     y: number;
     score: number;
     alive: boolean;
+    skinId?: string;
+    jumping?: boolean;
 }
 
 interface ParallaxLayer {
@@ -24,7 +27,7 @@ const PIPE_GAP = 200;
 const PIPE_SPEED = 3;
 const GRAVITY = 0.25;
 const JUMP_POWER = -6;
-const PLAYER_RADIUS = 12;
+const PLAYER_RADIUS = 32;
 const HITBOX_BUFFER = 2;
 const EFFECTIVE_RADIUS = PLAYER_RADIUS - HITBOX_BUFFER;
 const GROUND_HEIGHT = 50;
@@ -47,6 +50,7 @@ export class GameRenderer {
     private resizeHandler: () => void;
     private static instance: GameRenderer | null = null;
     private static instanceId: string = Math.random().toString(36).substr(2, 9);
+    private spriteSheetLoaded: boolean = false;
 
     constructor(container: HTMLElement) {
         // Prevent multiple instances entirely
@@ -111,6 +115,9 @@ export class GameRenderer {
 
         this.app.stage.addChild(this.stage);
 
+        // Load sprite sheet
+        await this.loadSpriteSheet();
+
         // Create parallax background
         await this.createParallaxBackground();
 
@@ -122,6 +129,18 @@ export class GameRenderer {
         this.playerContainer = await this.drawPlayer();
         this.playerContainer.visible = false; // Hide legacy container - using multiplayer system now
         this.stage.addChild(this.playerContainer);
+    }
+
+    private async loadSpriteSheet() {
+        try {
+            console.log('🎨 Loading sprite sheet...');
+            await Assets.load('/sprites.json');
+            this.spriteSheetLoaded = true;
+            console.log('✅ Sprite sheet loaded successfully');
+        } catch (error) {
+            console.warn('⚠️ Sprite sheet not found, using fallback flappy-bird.png:', error);
+            this.spriteSheetLoaded = false;
+        }
     }
 
       private async createParallaxBackground() {
@@ -363,6 +382,30 @@ export class GameRenderer {
         return { x: PLAYER_X, y: this.playerY };
     }
 
+    private updatePlayerTexture(player: Player) {
+        if (!this.spriteSheetLoaded) {
+            console.warn(`⚠️ Sprite sheet not loaded, cannot update texture`);
+            return;
+        }
+
+        const baseSkin = player.skinId || 'character1';
+        const frameName = player.jumping ? `${baseSkin}-boosting` : `${baseSkin}-idle`;
+
+        console.log(`🎬 Updating texture: jumping=${player.jumping}, frameName=${frameName}`);
+
+        try {
+            const spriteSheet = Assets.cache.get('/sprites.json');
+            if (spriteSheet?.textures?.[frameName]) {
+                player.birdSprite.texture = spriteSheet.textures[frameName];
+                console.log(`✅ Texture updated to ${frameName}`);
+            } else {
+                console.warn(`⚠️ Frame ${frameName} not found in sprite sheet. Available:`, Object.keys(spriteSheet?.textures || {}));
+            }
+        } catch (error) {
+            console.warn(`❌ Failed to update texture to ${frameName}:`, error);
+        }
+    }
+
     setLocalPlayerId(playerId: string) {
         console.log(`🎯 setLocalPlayerId called: ${playerId?.substring(0, 6)}`);
         this.localPlayerId = playerId;
@@ -390,18 +433,19 @@ export class GameRenderer {
         this.playerContainer.visible = false;
     }
 
-    updateAllPlayers(serverPlayers: Array<{ id: string; name: string; y: number; score: number; alive: boolean }>) {
-        console.log(`📊 updateAllPlayers called with ${serverPlayers.length} players:`, serverPlayers.map(p => `${p.name}(${p.id.substring(0,6)})`));
+    updateAllPlayers(serverPlayers: Array<{ id: string; name: string; y: number; score: number; alive: boolean; skinId?: string; jumping?: boolean }>) {
+        console.log(`📊 updateAllPlayers called with ${serverPlayers.length} players:`, serverPlayers.map(p => `${p.name}(${p.id.substring(0,6)}) skinId=${p.skinId} jumping=${p.jumping}`));
         console.log(`   🎯 localPlayerId = ${this.localPlayerId?.substring(0, 6)}`);
+        console.log(`   📦 Current players in map: ${this.players.size}`, Array.from(this.players.keys()).map(id => id.substring(0, 6)));
 
         // Update or create all players
         for (const serverPlayer of serverPlayers) {
             const isLocal = serverPlayer.id === this.localPlayerId;
 
-            console.log(`👤 Processing player ${serverPlayer.name} (${serverPlayer.id.substring(0, 6)}): isLocal=${isLocal} (${serverPlayer.id} === ${this.localPlayerId})`);
+            console.log(`👤 Processing player ${serverPlayer.name} (${serverPlayer.id.substring(0, 6)}): isLocal=${isLocal}, skinId=${serverPlayer.skinId}, jumping=${serverPlayer.jumping}`);
 
             // Render all players through the same system
-            this.updateOrCreatePlayer(serverPlayer.id, serverPlayer.name, serverPlayer.y, serverPlayer.alive, isLocal);
+            this.updateOrCreatePlayer(serverPlayer.id, serverPlayer.name, serverPlayer.y, serverPlayer.alive, isLocal, serverPlayer.skinId, serverPlayer.jumping);
         }
 
         // Remove players that are no longer in the game
@@ -413,32 +457,41 @@ export class GameRenderer {
         }
     }
 
-    private async updateOrCreatePlayer(playerId: string, name: string, y: number, alive: boolean, isLocal: boolean) {
+    private async updateOrCreatePlayer(playerId: string, name: string, y: number, alive: boolean, isLocal: boolean, skinId?: string, jumping?: boolean) {
         // Check again after any pending async operations, to prevent race condition
         if (this.players.has(playerId)) {
             // Player already exists, just update it
             const player = this.players.get(playerId)!;
-            player.y = y;
-            player.alive = alive;
-            player.sprite.position.set(PLAYER_X, y);
-            player.nameText.visible = alive;
 
-            if (isLocal) {
-                player.sprite.alpha = alive ? 1.0 : 0.5;
-                player.nameText.alpha = alive ? 1.0 : 0.5;
-                console.log(`🔄 UPDATE LOCAL player ${name}: sprite.alpha=${player.sprite.alpha}, nameText.alpha=${player.nameText.alpha}, nameColor=${player.nameText.style.fill}`);
+            // Check if skin changed - recreate sprite if needed
+            if (skinId && player.skinId !== skinId) {
+                console.log(`🎨 Skin changed for ${name}: ${player.skinId} -> ${skinId}, recreating sprite`);
+                this.removePlayer(playerId);
+                // Will be recreated below
             } else {
-                player.sprite.alpha = alive ? 0.5 : 0.25;
-                player.nameText.alpha = alive ? 0.7 : 0.3;
-                console.log(`🔄 UPDATE GHOST player ${name}: sprite.alpha=${player.sprite.alpha}, nameText.alpha=${player.nameText.alpha}, nameColor=${player.nameText.style.fill}`);
+                player.y = y;
+                player.alive = alive;
+                player.jumping = jumping;
+                player.sprite.position.set(PLAYER_X, y);
+                player.nameText.visible = alive;
+
+                // Update texture based on jumping state
+                this.updatePlayerTexture(player);
+
+                if (isLocal) {
+                    player.sprite.alpha = alive ? 1.0 : 0.5;
+                    player.nameText.alpha = alive ? 1.0 : 0.5;
+                } else {
+                    player.sprite.alpha = alive ? 0.5 : 0.25;
+                    player.nameText.alpha = alive ? 0.7 : 0.3;
+                }
+                player.sprite.visible = true;
+                return;
             }
-            player.sprite.visible = true;
-            return;
         }
 
-        console.log(`🆕 Creating NEW player sprite: ${name} (${playerId.substring(0, 6)}), isLocal=${isLocal}, total players before: ${this.players.size}`);
+        console.log(`🆕 Creating NEW player sprite: ${name} (${playerId.substring(0, 6)}), isLocal=${isLocal}, skinId=${skinId}, total players before: ${this.players.size}`);
         console.log(`   Current players in map:`, Array.from(this.players.keys()).map(id => id.substring(0, 6)));
-        console.trace('Player creation stack trace');
 
         // Add placeholder immediately to prevent duplicate creation during async texture load
         const placeholderNameText = new Text({
@@ -460,10 +513,13 @@ export class GameRenderer {
             name: name,
             sprite: new Container(), // Temporary
             nameText: placeholderNameText,
+            birdSprite: new Sprite(), // Temporary
             x: PLAYER_X,
             y: y,
             score: 0,
-            alive
+            alive,
+            skinId: skinId || 'character1',
+            jumping: jumping || false
         });
 
         const container = new Container();
@@ -493,8 +549,31 @@ export class GameRenderer {
         shadow.fill({ color: 0x000000, alpha: 0.3 });
         container.addChild(shadow);
 
-        // Load and add bird sprite
-        const texture = await Assets.load('/flappy-bird.png');
+        // Load and add bird sprite based on skinId
+        let texture;
+        const frameName = skinId || 'character1';
+        console.log(`🎨 Loading skin ${frameName} for player ${name}, spriteSheetLoaded=${this.spriteSheetLoaded}`);
+
+        if (this.spriteSheetLoaded) {
+            try {
+                const spriteSheet = Assets.cache.get('/sprites.json');
+                if (spriteSheet?.textures?.[frameName]) {
+                    texture = spriteSheet.textures[frameName];
+                    console.log(`✅ Loaded ${frameName} from sprite sheet`);
+                } else {
+                    console.warn(`⚠️ Frame ${frameName} not in sprite sheet, using flappy-bird.png`);
+                    texture = await Assets.load('/flappy-bird.png');
+                }
+            } catch (error) {
+                console.warn(`⚠️ Error loading sprite sheet frame, using flappy-bird.png:`, error);
+                texture = await Assets.load('/flappy-bird.png');
+            }
+        } else {
+            // Fallback to flappy-bird.png
+            console.log(`Using fallback flappy-bird.png`);
+            texture = await Assets.load('/flappy-bird.png');
+        }
+
         const bird = new Sprite(texture);
 
         bird.width = PLAYER_RADIUS * 2;
@@ -503,6 +582,7 @@ export class GameRenderer {
         bird.alpha = 1.0; // Ensure bird sprite itself is fully opaque
 
         container.addChild(bird);
+
         container.alpha = 1.0; // Ensure container is fully opaque
 
         // Add container to stage - ensure it's above background layers
@@ -518,6 +598,7 @@ export class GameRenderer {
         const playerData = this.players.get(playerId)!;
         playerData.sprite = container;
         playerData.nameText = nameText;
+        playerData.birdSprite = bird;
 
         console.log(`Created player sprite for ${name} (${playerId.substring(0, 6)}), isLocal=${isLocal}`);
 

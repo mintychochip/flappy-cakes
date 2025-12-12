@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: gcr.io/YOUR_PROJECT_ID/flappy-royale-server:latest
+        image: gcr.io/flappy-cakes/flappy-royale-server:latest
         ports:
         - containerPort: 8080
           name: http

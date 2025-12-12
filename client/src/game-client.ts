@@ -75,6 +75,12 @@ export class GameClient {
         }
         if (skinId) {
             this.skinId = skinId;
+        } else if (typeof window !== 'undefined') {
+            // Fallback to localStorage if no skinId provided
+            const savedSkin = localStorage.getItem('flappySkin');
+            if (savedSkin) {
+                this.skinId = savedSkin;
+            }
         }
 
         // Use base WebSocket URL - room code is sent in the message

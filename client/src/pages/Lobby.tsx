@@ -18,7 +18,6 @@ export default function Lobby() {
   const [isHost, setIsHost] = useState(false)
   const [error, setError] = useState('')
   const gameStartedRef = useRef(false)
-  const [selectedSkin, setSelectedSkin] = useState('character1')
 
   // Available skins
   const skins = [
@@ -41,17 +40,10 @@ export default function Lobby() {
     'bg-indigo-600 hover:bg-indigo-700',
   ]
 
-  // Load saved skin on mount
-  useEffect(() => {
-    const savedSkin = localStorage.getItem('flappySkin')
-    console.log('🎨 Loading saved skin from localStorage:', savedSkin)
-    if (savedSkin) {
-      setSelectedSkin(savedSkin)
-      console.log('🎨 Set selectedSkin to:', savedSkin)
-    } else {
-      console.log('🎨 No saved skin found, using default character1')
-    }
-  }, [])
+  // Load saved skin and initialize state
+  const [selectedSkin, setSelectedSkin] = useState(() => {
+    return typeof window !== 'undefined' ? (localStorage.getItem('flappySkin') || 'character1') : 'character1'
+  })
 
   // Define event handlers
   const handleJoined = async (data: any) => {
@@ -132,24 +124,22 @@ export default function Lobby() {
     const initializeLobby = async () => {
       await loadRoomData()
 
-      // Load saved skin before connecting
-      const savedSkin = localStorage.getItem('flappySkin') || 'character1'
-      console.log('🎨 Using skin for connection:', savedSkin)
-      setSelectedSkin(savedSkin)
+      // Use the already loaded selectedSkin
+      console.log('🎨 Using skin for connection:', selectedSkin, 'current selectedSkin:', selectedSkin)
 
       // Only connect if not already connected
       if (!gameClient.playerId) {
-        console.log('🎨 Connecting to WebSocket server with skin:', savedSkin)
+        console.log('🎨 Connecting to WebSocket server with skin:', selectedSkin)
         // Send saved skin immediately
-        gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName, savedSkin)
+        gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName, selectedSkin)
       } else {
-        console.log('Already connected, but rejoining room in case it was deleted with skin:', savedSkin)
+        console.log('Already connected, but rejoining room in case it was deleted with skin:', selectedSkin)
         // Send a new join message to ensure we're in the room (in case it was deleted)
         gameClient.send({
           type: 'join',
           roomCode: roomCode?.toUpperCase(),
           playerName: savedName,
-          skinId: savedSkin
+          skinId: selectedSkin
         })
         setConnected(true)
       }
@@ -245,6 +235,16 @@ export default function Lobby() {
     return () => clearInterval(interval)
   }, [roomCode, savedName])
 
+  // Debug selectedSkin changes
+  useEffect(() => {
+    console.log('🎨 selectedSkin changed to:', selectedSkin)
+  }, [selectedSkin])
+
+  // Debug initialization order
+  useEffect(() => {
+    console.log('🎨 Lobby initialization - selectedSkin:', selectedSkin, 'localStorage:', localStorage.getItem('flappySkin'))
+  }, [roomCode])
+
   return (
     <div className="min-h-screen bg-purple-900 flex flex-col">
       {/* Header */}
@@ -277,7 +277,11 @@ export default function Lobby() {
                   key={skin.id}
                   onClick={() => {
                     console.log('🎨 Skin selected:', skin.id)
-                    setSelectedSkin(skin.id)
+                    console.log('🎨 Current selectedSkin before update:', selectedSkin)
+                    console.log('🎨 gameClient.playerId:', gameClient.playerId)
+                    console.log('🎨 connected:', connected)
+                    
+                    // Update localStorage immediately
                     localStorage.setItem('flappySkin', skin.id)
                     console.log('🎨 Saved to localStorage:', localStorage.getItem('flappySkin'))
                     
@@ -289,7 +293,13 @@ export default function Lobby() {
                         skinId: skin.id
                       })
                       console.log('🎨 Sent updateSkin to server:', skin.id)
+                    } else {
+                      console.log('❌ Cannot send updateSkin - playerId:', gameClient.playerId, 'connected:', connected)
                     }
+                    
+                    // Update state after sending
+                    setSelectedSkin(skin.id)
+                    console.log('🎨 selectedSkin after setState call (will be updated on next render)')
                   }}
                   className={`border-4 border-black p-4 w-32 h-32 flex flex-col items-center justify-center gap-2 transition-all ${
                     selectedSkin === skin.id

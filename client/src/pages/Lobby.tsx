@@ -1,26 +1,34 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useGameClient } from '../contexts/GameContext'
-import { getRoom } from '../services/roomService'
+import { getRoom, subscribeToRoom } from '../services/roomService'
+import { leaveRoom } from '../services/lobbyService'
 
 export default function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const gameClient = useGameClient()
+
+  // Get hostId from navigation state (only set when creating a room)
+  const hostIdFromState = (location.state as any)?.hostId
 
   const [players, setPlayers] = useState<Array<{id: string; name: string; isHost: boolean}>>([])
   const [connected, setConnected] = useState(false)
   const [isHost, setIsHost] = useState(false)
   const [error, setError] = useState('')
+  const gameStartedRef = useRef(false)
 
   // Load saved name from localStorage
   const savedName = localStorage.getItem('flappyPlayerName') || 'Anonymous'
 
   // Define event handlers
-  const handleJoined = (data: any) => {
+  const handleJoined = async (data: any) => {
     setConnected(true)
     console.log('Connected to game server:', data)
-    // Don't manually add players here - loadRoomData handles it from Firestore
+
+    // Now that we have playerId, check if we're the host
+    await refreshRoomData()
   }
 
   const handlePlayerJoined = (data: any) => {
@@ -37,6 +45,7 @@ export default function Lobby() {
 
   const handleGameStart = () => {
     console.log('Game starting, navigating to play screen')
+    gameStartedRef.current = true
     // All players (including host) get their own playable canvas
     navigate(`/play/${roomCode}`, { replace: true })
   }
@@ -55,7 +64,7 @@ export default function Lobby() {
       // Convert Firestore player objects to our format
       const playersArray = Object.values(room.players || {}).map(player => ({
         id: player.id,
-        name: player.name + (player.id === room.hostId ? ' (You)' : ''),
+        name: player.name,
         isHost: player.isHost
       }))
 
@@ -63,12 +72,18 @@ export default function Lobby() {
       console.log('🔍 Room hostId:', room.hostId, 'Player IDs:', Object.keys(room.players || {}))
 
       setPlayers(playersArray)
-      // Check if current player is host by finding their player object
-      const currentPlayer = Object.values(room.players || {}).find(p => p.name === savedName)
-      console.log('🔍 Current player lookup:', { savedName, currentPlayer, isHost: currentPlayer?.isHost })
-      setIsHost(currentPlayer?.isHost || false)
 
-      console.log('✅ Set players state with', playersArray.length, 'players, isHost:', currentPlayer?.isHost || false)
+      // Determine if current user is host
+      // If we have hostId from navigation state (created room), use that
+      // Otherwise use gameClient.playerId (joined room)
+      const myId = hostIdFromState || gameClient.playerId
+      if (myId) {
+        const isHostUser = myId === room.hostId
+        setIsHost(isHostUser)
+        console.log('🔍 Host check: myId=', myId, 'room.hostId=', room.hostId, 'isHost=', isHostUser)
+      }
+
+      console.log('✅ Set players state with', playersArray.length, 'players')
     } catch (error) {
       console.error('Failed to load room data:', error)
       setError('Failed to load room data: ' + error.message)
@@ -113,6 +128,14 @@ export default function Lobby() {
       gameClient.off('playerLeft', handlePlayerLeft)
       gameClient.off('gameStart', handleGameStart)
 
+      // Leave room if user navigates away without starting the game
+      if (!gameStartedRef.current && gameClient.playerId && roomCode) {
+        console.log('🚪 User left lobby without starting game, calling leaveRoom')
+        leaveRoom(roomCode.toUpperCase(), gameClient.playerId).catch(err => {
+          console.error('Failed to leave room:', err)
+        })
+      }
+
       // Note: Don't disconnect here since PlayGame needs the same connection
     }
   }, [roomCode, navigate])
@@ -150,15 +173,20 @@ export default function Lobby() {
       // Convert Firestore player objects to our format
       const playersArray = Object.values(room.players || {}).map(player => ({
         id: player.id,
-        name: player.name + (player.id === room.hostId ? ' (You)' : ''),
+        name: player.name,
         isHost: player.isHost
       }))
 
       console.log('🔄 Refreshed players:', playersArray)
       setPlayers(playersArray)
-      // Check if current player is host by finding their player object
-      const currentPlayer = Object.values(room.players || {}).find(p => p.name === savedName)
-      setIsHost(currentPlayer?.isHost || false)
+
+      // Determine if current user is host
+      const myId = hostIdFromState || gameClient.playerId
+      if (myId) {
+        const isHostUser = myId === room.hostId
+        setIsHost(isHostUser)
+        console.log('🔍 Host check (refresh): myId=', myId, 'room.hostId=', room.hostId, 'isHost=', isHostUser)
+      }
     } catch (error) {
       console.error('Failed to refresh room data:', error)
     }
@@ -167,7 +195,7 @@ export default function Lobby() {
   useEffect(() => {
     const interval = setInterval(() => {
       refreshRoomData()
-    }, 5000) // Refresh every 5 seconds
+    }, 2000) // Refresh every 2 seconds (faster than before)
     return () => clearInterval(interval)
   }, [roomCode, savedName])
 

@@ -32,7 +32,8 @@ export default function Home() {
       localStorage.setItem('flappyPlayerName', cleanName)
 
       const room = await createRoom(cleanName)
-      navigate(`/lobby/${room.code}`)
+      // Pass the hostId via state so the lobby knows this user is the host
+      navigate(`/lobby/${room.code}`, { state: { hostId: room.hostId } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create room')
     } finally {

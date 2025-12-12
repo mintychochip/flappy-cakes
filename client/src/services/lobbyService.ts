@@ -1,6 +1,7 @@
 const API_BASE = 'https://createroom-bfuiaay2bq-uc.a.run.app';
 const CREATE_ROOM_URL = 'https://createroom-bfuiaay2bq-uc.a.run.app';
 const JOIN_ROOM_URL = 'https://joinroom-bfuiaay2bq-uc.a.run.app';
+const LEAVE_ROOM_URL = 'https://leaveroom-bfuiaay2bq-uc.a.run.app';
 
 export interface Player {
   id: string;
@@ -62,4 +63,17 @@ export async function joinRoom(code: string, playerName?: string): Promise<JoinR
   }
 
   return response.json();
+}
+
+export async function leaveRoom(code: string, playerId: string): Promise<void> {
+  const response = await fetch(LEAVE_ROOM_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, playerId })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to leave room');
+  }
 }

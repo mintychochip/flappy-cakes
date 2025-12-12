@@ -479,11 +479,11 @@ export class GameRenderer {
                 this.updatePlayerTexture(player);
 
                 if (isLocal) {
-                    player.sprite.alpha = alive ? 1.0 : 0.5;
-                    player.nameText.alpha = alive ? 1.0 : 0.5;
+                    player.sprite.alpha = alive ? 1.0 : 0.3;
+                    player.nameText.alpha = alive ? 1.0 : 0.3;
                 } else {
-                    player.sprite.alpha = alive ? 0.3 : 0.15;
-                    player.nameText.alpha = alive ? 0.4 : 0.2;
+                    player.sprite.alpha = alive ? 0.3 : 0.05;
+                    player.nameText.alpha = alive ? 0.4 : 0.1;
                 }
                 player.sprite.visible = true;
                 return;
@@ -609,8 +609,8 @@ export class GameRenderer {
         playerData.nameText.visible = alive;
 
         if (isLocal) {
-            playerData.sprite.alpha = alive ? 1.0 : 0.5;
-            playerData.nameText.alpha = alive ? 1.0 : 0.5;
+            playerData.sprite.alpha = alive ? 1.0 : 0.3;
+            playerData.nameText.alpha = alive ? 1.0 : 0.3;
             console.log(`🎨 Created LOCAL player - sprite alpha: ${playerData.sprite.alpha}, name color: ${playerData.nameText.style.fill}`);
             console.log(`   Container world alpha: ${playerData.sprite.worldAlpha}`);
             console.log(`   Container visible: ${playerData.sprite.visible}`);
@@ -621,8 +621,8 @@ export class GameRenderer {
                 console.log(`   Child ${i} (${child.constructor.name}): alpha=${child.alpha}, worldAlpha=${child.worldAlpha}, visible=${child.visible}`);
             });
         } else {
-            playerData.sprite.alpha = alive ? 0.3 : 0.15;
-            playerData.nameText.alpha = alive ? 0.4 : 0.2;
+            playerData.sprite.alpha = alive ? 0.3 : 0.05;
+            playerData.nameText.alpha = alive ? 0.4 : 0.1;
             console.log(`👻 Created GHOST player - sprite alpha: ${playerData.sprite.alpha}, name color: ${playerData.nameText.style.fill}`);
         }
         playerData.sprite.visible = true;

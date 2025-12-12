@@ -28,6 +28,18 @@ export default function Lobby() {
   // Load saved name from localStorage
   const savedName = localStorage.getItem('flappyPlayerName') || 'Anonymous'
 
+  // Player card colors - cycle through different colors
+  const playerColors = [
+    'bg-purple-600 hover:bg-purple-700',
+    'bg-blue-600 hover:bg-blue-700',
+    'bg-green-600 hover:bg-green-700',
+    'bg-red-600 hover:bg-red-700',
+    'bg-orange-600 hover:bg-orange-700',
+    'bg-pink-600 hover:bg-pink-700',
+    'bg-teal-600 hover:bg-teal-700',
+    'bg-indigo-600 hover:bg-indigo-700',
+  ]
+
   // Load saved skin on mount
   useEffect(() => {
     const savedSkin = localStorage.getItem('flappySkin')
@@ -288,7 +300,7 @@ export default function Lobby() {
                 {players.map((player, i) => (
                   <div
                     key={player.id}
-                    className="bg-purple-600 border-4 border-black p-4 text-center hover:bg-purple-700 transition-colors"
+                    className={`${playerColors[i % playerColors.length]} border-4 border-black p-4 text-center transition-colors`}
                   >
                     <div className="text-xl font-black text-yellow-400 mb-1">
                       #{i + 1}

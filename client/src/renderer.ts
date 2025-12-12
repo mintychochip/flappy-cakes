@@ -104,18 +104,10 @@ export class GameRenderer {
 
         container.appendChild(this.app.canvas);
 
-        // Set up container for scaling
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.display = 'flex';
-        container.style.justifyContent = 'center';
-        container.style.alignItems = 'center';
-
-        // Set canvas style to scale
-        this.app.canvas.style.maxWidth = '100%';
-        this.app.canvas.style.maxHeight = '100%';
-        this.app.canvas.style.width = 'auto';
-        this.app.canvas.style.height = 'auto';
+        // Fixed desktop size - no scaling
+        this.app.canvas.style.width = `${GAME_WIDTH}px`;
+        this.app.canvas.style.height = `${GAME_HEIGHT}px`;
+        this.app.canvas.style.display = 'block';
 
         this.app.stage.addChild(this.stage);
 
@@ -130,13 +122,6 @@ export class GameRenderer {
         this.playerContainer = await this.drawPlayer();
         this.playerContainer.visible = false; // Hide legacy container - using multiplayer system now
         this.stage.addChild(this.playerContainer);
-
-        // Initial resize calculation
-        this.calculateScale();
-
-        // Resize handler
-        this.resizeHandler = () => this.onResize();
-        window.addEventListener('resize', this.resizeHandler);
     }
 
       private async createParallaxBackground() {
@@ -662,16 +647,4 @@ export class GameRenderer {
         console.log(`   ✅ Reset complete, localPlayerId still: ${this.localPlayerId?.substring(0, 6)}`);
     }
 
-    private calculateScale() {
-        // Check if app and renderer still exist
-        if (!this.app || !this.app.renderer) return;
-
-        // Keep game at fixed dimensions, scale the canvas
-        this.app.renderer.resize(GAME_WIDTH, GAME_HEIGHT);
-        this.drawBackground();
-    }
-
-    private onResize() {
-        this.calculateScale();
-    }
 }

@@ -236,65 +236,99 @@ export default function PlayGame() {
   return (
     <div className="min-h-screen bg-black flex flex-col">
       {/* Top bar */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="bg-purple-800 border-b-4 border-black p-6 flex items-center justify-between">
+        <div className="flex items-center space-x-8">
           <div className="text-white">
-            <div className="text-xs opacity-75">Room</div>
-            <div className="text-2xl font-black tracking-widest">{roomCode}</div>
+            <div className="text-xs font-bold text-yellow-400">ROOM CODE</div>
+            <div className="text-3xl font-black tracking-widest text-yellow-400">{roomCode}</div>
           </div>
 
           <div className="text-white">
-            <div className="text-xs opacity-75">Your Score</div>
-            <div className="text-2xl font-bold">{score}</div>
+            <div className="text-xs font-bold text-yellow-400">YOUR SCORE</div>
+            <div className="text-3xl font-black text-white">{score}</div>
           </div>
 
           <div className="text-white">
-            <div className="text-xs opacity-75">Status</div>
-            <div className={`text-lg font-bold ${alive ? 'text-green-300' : 'text-red-300'}`}>
+            <div className="text-xs font-bold text-yellow-400">STATUS</div>
+            <div className={`text-2xl font-black ${alive ? 'text-green-400' : 'text-red-400'}`}>
               {alive ? 'ALIVE' : 'DEAD'}
             </div>
           </div>
         </div>
 
         <div className="text-white text-right">
-          <div className="text-lg font-bold">
-            {gameState === 'waiting' && 'Waiting...'}
+          <div className="text-2xl font-black text-yellow-400">
+            {gameState === 'waiting' && 'WAITING...'}
             {gameState === 'playing' && 'PLAYING'}
             {gameState === 'finished' && 'GAME OVER'}
           </div>
-          <div className="text-sm opacity-75">
+          <div className="text-sm font-bold text-white">
             {players.length} players
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
-        <div className="relative w-full h-full max-w-7xl max-h-[400px]">
+      <div className="flex-1 flex items-center justify-center bg-purple-900 p-8 gap-8">
+        {/* Game Canvas */}
+        <div className="relative border-4 border-black overflow-hidden" style={{ width: `${GAME_WIDTH}px`, height: `${GAME_HEIGHT}px` }}>
           <div
             ref={canvasRef}
-            className="border-4 border-white rounded-lg overflow-hidden shadow-2xl cursor-pointer touch-none w-full h-full"
-            style={{
-              touchAction: 'none',
-              aspectRatio: `${GAME_WIDTH}/${GAME_HEIGHT}`, // Match PIXI dimensions (800x450 = 16:9)
-              maxWidth: '100%',
-              maxHeight: '100%'
-            }}
+            className="cursor-pointer w-full h-full"
           />
           {!alive && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-              <div className="text-white text-4xl font-black">
-                YOU DIED
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+              <div className="bg-red-600 border-4 border-black px-12 py-6">
+                <div className="text-white text-6xl font-black">YOU DIED</div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Live Scoreboard */}
+        <div className="bg-yellow-400 border-4 border-black p-6 w-80">
+          <h2 className="text-purple-900 text-3xl font-black mb-4">LIVE RANKINGS</h2>
+          <div className="space-y-2">
+            {players
+              .sort((a, b) => b.score - a.score)
+              .map((player, index) => (
+                <div
+                  key={player.id}
+                  className={`flex items-center justify-between p-3 border-4 border-black font-bold ${
+                    player.id === gameClient.playerId
+                      ? 'bg-blue-500'
+                      : player.alive
+                      ? 'bg-green-500'
+                      : 'bg-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl font-black text-purple-900 w-8">
+                      #{index + 1}
+                    </div>
+                    <div className="font-black text-white">
+                      {player.name || `Player ${player.id.substring(0, 6)}`}
+                      {player.id === gameClient.playerId && ' (YOU)'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xl font-black text-purple-900">
+                      {player.score}
+                    </div>
+                    {!player.alive && (
+                      <div className="text-red-600 text-xs font-bold">DEAD</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
       </div>
 
       {/* Instructions */}
-      <div className="bg-gray-900 p-4 text-center">
-        <div className="text-white/75 text-sm">
-          Press SPACE or TAP/CLICK to flap
+      <div className="bg-purple-800 border-t-4 border-black p-4 text-center">
+        <div className="text-yellow-400 font-bold text-lg">
+          Press SPACE to flap
         </div>
       </div>
     </div>

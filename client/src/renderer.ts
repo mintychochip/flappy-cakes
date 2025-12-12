@@ -60,6 +60,7 @@ export class GameRenderer {
 
         this.app = new Application();
         this.stage = new Container();
+        this.stage.sortableChildren = true; // Enable z-index sorting
         this.background = new Graphics();
         this.playerContainer = new Container();
 
@@ -125,8 +126,9 @@ export class GameRenderer {
         this.drawBackground();
         this.stage.addChild(this.background);
 
-        // Player container
+        // Player container (LEGACY - kept for compatibility but hidden in multiplayer mode)
         this.playerContainer = await this.drawPlayer();
+        this.playerContainer.visible = false; // Hide legacy container - using multiplayer system now
         this.stage.addChild(this.playerContainer);
 
         // Initial resize calculation
@@ -377,29 +379,41 @@ export class GameRenderer {
     }
 
     setLocalPlayerId(playerId: string) {
+        console.log(`🎯 setLocalPlayerId called: ${playerId?.substring(0, 6)}`);
         this.localPlayerId = playerId;
+
+        // If player sprite already exists, update its visual style to local
+        if (this.players.has(playerId)) {
+            console.log(`⚠️ Player sprite already exists for ${playerId.substring(0, 6)}, updating to LOCAL style`);
+            const player = this.players.get(playerId)!;
+            player.sprite.alpha = player.alive ? 1.0 : 0.5;
+            player.nameText.alpha = player.alive ? 1.0 : 0.5;
+            player.nameText.style.fill = 0xFFFFFF; // White for local
+        }
     }
 
     setPlayerY(y: number, alive: boolean = true) {
+        // LEGACY - only used by old HostGame.tsx
         // Server sends y in GAME_HEIGHT coords, use directly
         this.playerY = y;
 
         // Render player at server position (no scaling needed)
         this.playerContainer.position.set(PLAYER_X, y);
 
-        // Hide player when dead
-        this.playerContainer.visible = alive;
+        // KEEP INVISIBLE - using multiplayer system (updateAllPlayers) instead
+        // This legacy container should never be visible
+        this.playerContainer.visible = false;
     }
 
     updateAllPlayers(serverPlayers: Array<{ id: string; name: string; y: number; score: number; alive: boolean }>) {
+        console.log(`📊 updateAllPlayers called with ${serverPlayers.length} players:`, serverPlayers.map(p => `${p.name}(${p.id.substring(0,6)})`));
+        console.log(`   🎯 localPlayerId = ${this.localPlayerId?.substring(0, 6)}`);
+
         // Update or create all players
         for (const serverPlayer of serverPlayers) {
             const isLocal = serverPlayer.id === this.localPlayerId;
 
-            // Only log occasionally to reduce spam
-      if (Math.random() < 0.01) { // 1% chance to log
-        console.log(`Player ${serverPlayer.name} (${serverPlayer.id.substring(0, 6)}): isLocal=${isLocal}`);
-      }
+            console.log(`👤 Processing player ${serverPlayer.name} (${serverPlayer.id.substring(0, 6)}): isLocal=${isLocal} (${serverPlayer.id} === ${this.localPlayerId})`);
 
             // Render all players through the same system
             this.updateOrCreatePlayer(serverPlayer.id, serverPlayer.name, serverPlayer.y, serverPlayer.alive, isLocal);
@@ -415,76 +429,137 @@ export class GameRenderer {
     }
 
     private async updateOrCreatePlayer(playerId: string, name: string, y: number, alive: boolean, isLocal: boolean) {
-        if (!this.players.has(playerId)) {
-            const container = new Container();
+        // Check again after any pending async operations, to prevent race condition
+        if (this.players.has(playerId)) {
+            // Player already exists, just update it
+            const player = this.players.get(playerId)!;
+            player.y = y;
+            player.alive = alive;
+            player.sprite.position.set(PLAYER_X, y);
+            player.nameText.visible = alive;
 
-            // Name text above bird
-            const nameText = new Text({
-                text: name,
-                style: {
-                    fontFamily: 'Arial',
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: isLocal ? 0xFFFFFF : 0xFFFF00, // White for local, yellow for others
-                    stroke: {
-                        color: 0x000000,
-                        width: 2
-                    },
-                    align: 'center'
+            if (isLocal) {
+                player.sprite.alpha = alive ? 1.0 : 0.5;
+                player.nameText.alpha = alive ? 1.0 : 0.5;
+                console.log(`🔄 UPDATE LOCAL player ${name}: sprite.alpha=${player.sprite.alpha}, nameText.alpha=${player.nameText.alpha}, nameColor=${player.nameText.style.fill}`);
+            } else {
+                player.sprite.alpha = alive ? 0.5 : 0.25;
+                player.nameText.alpha = alive ? 0.7 : 0.3;
+                console.log(`🔄 UPDATE GHOST player ${name}: sprite.alpha=${player.sprite.alpha}, nameText.alpha=${player.nameText.alpha}, nameColor=${player.nameText.style.fill}`);
+            }
+            player.sprite.visible = true;
+            return;
+        }
+
+        console.log(`🆕 Creating NEW player sprite: ${name} (${playerId.substring(0, 6)}), isLocal=${isLocal}, total players before: ${this.players.size}`);
+        console.log(`   Current players in map:`, Array.from(this.players.keys()).map(id => id.substring(0, 6)));
+        console.trace('Player creation stack trace');
+
+        // Add placeholder immediately to prevent duplicate creation during async texture load
+        const placeholderNameText = new Text({
+            text: name,
+            style: {
+                fontFamily: 'Arial',
+                fontSize: 14,
+                fontWeight: 'bold',
+                fill: isLocal ? 0xFFFFFF : 0xFFFF00, // Set correct color immediately
+                stroke: {
+                    color: 0x000000,
+                    width: 2
                 }
-            });
-            nameText.anchor.set(0.5, 0.5);
-            nameText.y = -PLAYER_RADIUS - 15; // Position above bird
-            container.addChild(nameText);
+            }
+        });
 
-            // Shadow beneath bird
-            const shadow = new Graphics();
-            shadow.circle(0, 8, 10);
-            shadow.fill({ color: 0x000000, alpha: 0.3 });
-            container.addChild(shadow);
+        this.players.set(playerId, {
+            id: playerId,
+            name: name,
+            sprite: new Container(), // Temporary
+            nameText: placeholderNameText,
+            x: PLAYER_X,
+            y: y,
+            score: 0,
+            alive
+        });
 
-            // Load and add bird sprite
-            const texture = await Assets.load('/flappy-bird.png');
-            const bird = new Sprite(texture);
+        const container = new Container();
 
-            bird.width = PLAYER_RADIUS * 2;
-            bird.height = PLAYER_RADIUS * 2;
-            bird.anchor.set(0.5, 0.5);
+        // Name text above bird
+        const nameText = new Text({
+            text: name,
+            style: {
+                fontFamily: 'Arial',
+                fontSize: 14,
+                fontWeight: 'bold',
+                fill: isLocal ? 0xFFFFFF : 0xFFFF00, // White for local, yellow for others
+                stroke: {
+                    color: 0x000000,
+                    width: 2
+                },
+                align: 'center'
+            }
+        });
+        nameText.anchor.set(0.5, 0.5);
+        nameText.y = -PLAYER_RADIUS - 15; // Position above bird
+        container.addChild(nameText);
 
-            container.addChild(bird);
-            this.stage.addChild(container);
+        // Shadow beneath bird
+        const shadow = new Graphics();
+        shadow.circle(0, 8, 10);
+        shadow.fill({ color: 0x000000, alpha: 0.3 });
+        container.addChild(shadow);
 
-            this.players.set(playerId, {
-                id: playerId,
-                name: name,
-                sprite: container,
-                nameText: nameText,
-                x: PLAYER_X,
-                y: y,
-                score: 0,
-                alive
-            });
+        // Load and add bird sprite
+        const texture = await Assets.load('/flappy-bird.png');
+        const bird = new Sprite(texture);
 
-            console.log(`Created player sprite for ${name} (${playerId.substring(0, 6)}), isLocal=${isLocal}`);
-        }
+        bird.width = PLAYER_RADIUS * 2;
+        bird.height = PLAYER_RADIUS * 2;
+        bird.anchor.set(0.5, 0.5);
+        bird.alpha = 1.0; // Ensure bird sprite itself is fully opaque
 
-        const player = this.players.get(playerId)!;
-        player.y = y;
-        player.alive = alive;
+        container.addChild(bird);
+        container.alpha = 1.0; // Ensure container is fully opaque
 
-        // Position at same x as all players
-        player.sprite.position.set(PLAYER_X, y);
+        // Add container to stage - ensure it's above background layers
+        // Background is at index 0, parallax layers follow, then ground
+        // Players should be on top
+        this.stage.addChild(container);
 
-        // Update name text visibility and alpha
-        player.nameText.visible = alive;
+        // Force player sprites to render on top by setting higher zIndex
+        container.zIndex = 1000;
+        this.stage.sortChildren();
+
+        // Update the placeholder with the real sprite
+        const playerData = this.players.get(playerId)!;
+        playerData.sprite = container;
+        playerData.nameText = nameText;
+
+        console.log(`Created player sprite for ${name} (${playerId.substring(0, 6)}), isLocal=${isLocal}`);
+
+        // Update the newly created player's visual state
+        playerData.y = y;
+        playerData.alive = alive;
+        playerData.sprite.position.set(PLAYER_X, y);
+        playerData.nameText.visible = alive;
+
         if (isLocal) {
-            player.sprite.alpha = alive ? 1.0 : 0.5; // Full opacity for local player
-            player.nameText.alpha = alive ? 1.0 : 0.5;
+            playerData.sprite.alpha = alive ? 1.0 : 0.5;
+            playerData.nameText.alpha = alive ? 1.0 : 0.5;
+            console.log(`🎨 Created LOCAL player - sprite alpha: ${playerData.sprite.alpha}, name color: ${playerData.nameText.style.fill}`);
+            console.log(`   Container world alpha: ${playerData.sprite.worldAlpha}`);
+            console.log(`   Container visible: ${playerData.sprite.visible}`);
+            console.log(`   Container position: x=${playerData.sprite.x}, y=${playerData.sprite.y}`);
+            console.log(`   Total stage children: ${this.stage.children.length}`);
+            // Check individual children alphas
+            playerData.sprite.children.forEach((child: any, i: number) => {
+                console.log(`   Child ${i} (${child.constructor.name}): alpha=${child.alpha}, worldAlpha=${child.worldAlpha}, visible=${child.visible}`);
+            });
         } else {
-            player.sprite.alpha = alive ? 0.5 : 0.25; // More visible for others
-            player.nameText.alpha = alive ? 0.7 : 0.3;
+            playerData.sprite.alpha = alive ? 0.5 : 0.25;
+            playerData.nameText.alpha = alive ? 0.7 : 0.3;
+            console.log(`👻 Created GHOST player - sprite alpha: ${playerData.sprite.alpha}, name color: ${playerData.nameText.style.fill}`);
         }
-        player.sprite.visible = true;
+        playerData.sprite.visible = true;
     }
 
 
@@ -558,6 +633,10 @@ export class GameRenderer {
     }
 
     reset() {
+        console.log('🔄 Resetting renderer');
+        console.log(`   Current localPlayerId: ${this.localPlayerId?.substring(0, 6)}`);
+        console.log(`   Current players before clear:`, Array.from(this.players.keys()).map(id => id.substring(0, 6)));
+
         this.playerY = GAME_HEIGHT / 2;
         this.playerVelocityY = 0;
         this.pipes = [];
@@ -571,15 +650,16 @@ export class GameRenderer {
             layer.container.x = 0;
         }
 
-        // Clear pipes
+        // Clear ALL children except background and parallax (index 0 and 1)
+        // This removes pipes AND players
         for (let i = this.stage.children.length - 1; i >= 2; i--) {
             this.stage.removeChildAt(i);
         }
 
-        // Re-add players
-        for (const player of this.players.values()) {
-            this.stage.addChild(player.sprite);
-        }
+        // Clear players map completely - they'll be recreated when updateAllPlayers is called
+        console.log(`🗑️ Clearing ${this.players.size} player sprites`);
+        this.players.clear();
+        console.log(`   ✅ Reset complete, localPlayerId still: ${this.localPlayerId?.substring(0, 6)}`);
     }
 
     private calculateScale() {

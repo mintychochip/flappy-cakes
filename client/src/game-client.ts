@@ -76,11 +76,13 @@ export class GameClient {
         // Use base WebSocket URL - room code is sent in the message
         const wsUrl = url;
 
+        console.log(`🔌 GameClient.connect() called - roomCode: ${roomCode}, playerName: ${playerName}, existing playerId: ${this.playerId}`);
+
         try {
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
-                console.log('Connected to server');
+                console.log('✅ Connected to server, sending join message...');
                 this.reconnectAttempts = 0;
                 this.send({
                     type: 'join',

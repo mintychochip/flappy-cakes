@@ -1,8 +1,8 @@
 {
-  "name": "flappy-royale-lobby-functions",
+  "name": "flappy-royale-joinroom",
   "version": "1.0.0",
-  "description": "Cloud Functions for Flappy Royale lobby",
-  "main": "createRoom.js",
+  "description": "Join room Cloud Function",
+  "main": "joinRoom.js",
   "dependencies": {
     "@google-cloud/firestore": "^7.1.0",
     "@google-cloud/functions-framework": "^3.3.0"

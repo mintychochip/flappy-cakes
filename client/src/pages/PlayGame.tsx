@@ -94,6 +94,7 @@ export default function PlayGame() {
     }
 
     const handleGameStart = () => {
+      console.log('🎮 handleGameStart called - resetting renderer')
       setGameState('playing')
       isPlaying = true
       setAlive(true)

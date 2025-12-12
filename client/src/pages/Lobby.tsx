@@ -20,6 +20,7 @@ export default function Lobby() {
   const handleJoined = (data: any) => {
     setConnected(true)
     console.log('Connected to game server:', data)
+    // Don't manually add players here - loadRoomData handles it from Firestore
   }
 
   const handlePlayerJoined = (data: any) => {
@@ -62,9 +63,12 @@ export default function Lobby() {
       console.log('🔍 Room hostId:', room.hostId, 'Player IDs:', Object.keys(room.players || {}))
 
       setPlayers(playersArray)
-      setIsHost(room.hostId === savedName)
+      // Check if current player is host by finding their player object
+      const currentPlayer = Object.values(room.players || {}).find(p => p.name === savedName)
+      console.log('🔍 Current player lookup:', { savedName, currentPlayer, isHost: currentPlayer?.isHost })
+      setIsHost(currentPlayer?.isHost || false)
 
-      console.log('✅ Set players state with', playersArray.length, 'players')
+      console.log('✅ Set players state with', playersArray.length, 'players, isHost:', currentPlayer?.isHost || false)
     } catch (error) {
       console.error('Failed to load room data:', error)
       setError('Failed to load room data: ' + error.message)
@@ -72,22 +76,33 @@ export default function Lobby() {
   }
 
   useEffect(() => {
-    loadRoomData()
-
-    // Add event listeners
+    // Add event listeners first
     gameClient.on('joined', handleJoined)
     gameClient.on('playerJoined', handlePlayerJoined)
     gameClient.on('playerLeft', handlePlayerLeft)
     gameClient.on('gameStart', handleGameStart)
 
-    // Only connect if not already connected
-    if (!gameClient.playerId) {
-      console.log('Connecting to WebSocket server...')
-      gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName)
-    } else {
-      console.log('Already connected, skipping WebSocket connection')
-      setConnected(true)
+    // Load room data and connect WebSocket in sequence
+    const initializeLobby = async () => {
+      await loadRoomData()
+
+      // Only connect if not already connected
+      if (!gameClient.playerId) {
+        console.log('Connecting to WebSocket server...')
+        gameClient.connect('wss://flappy-royale-server-839616896872.us-central1.run.app/ws', roomCode, savedName)
+      } else {
+        console.log('Already connected, but rejoining room in case it was deleted')
+        // Send a new join message to ensure we're in the room (in case it was deleted)
+        gameClient.send({
+          type: 'join',
+          roomCode: roomCode?.toUpperCase(),
+          playerName: savedName
+        })
+        setConnected(true)
+      }
     }
+
+    initializeLobby()
 
     return () => {
       console.log('🧹 Lobby cleanup - removing event listeners')
@@ -102,18 +117,28 @@ export default function Lobby() {
     }
   }, [roomCode, navigate])
 
+  // Removed: redundant player adding logic - loadRoomData and refreshRoomData handle all player state
+
   const handleStartGame = () => {
-    console.log('Start game clicked, players:', players.length)
+    console.log('🎮 Start game clicked, players:', players.length, 'isHost:', isHost, 'connected:', connected)
     if (!isHost) {
-      console.log('Not the host, cannot start game')
+      console.log('❌ Not the host, cannot start game')
       return
     }
-    if (gameClient && players.length > 0) {
-      console.log('Sending startGame message')
-      gameClient.send({ type: 'startGame' })
-    } else {
-      console.log('Cannot start - no game client or no players')
+    if (!connected) {
+      console.log('❌ Not connected to server yet')
+      return
     }
+    if (players.length === 0) {
+      console.log('❌ No players in the game')
+      return
+    }
+    if (!gameClient) {
+      console.log('❌ No game client')
+      return
+    }
+    console.log('✅ Sending startGame message')
+    gameClient.send({ type: 'startGame' })
   }
 
   // Refresh room data periodically
@@ -131,7 +156,9 @@ export default function Lobby() {
 
       console.log('🔄 Refreshed players:', playersArray)
       setPlayers(playersArray)
-      setIsHost(room.hostId === savedName)
+      // Check if current player is host by finding their player object
+      const currentPlayer = Object.values(room.players || {}).find(p => p.name === savedName)
+      setIsHost(currentPlayer?.isHost || false)
     } catch (error) {
       console.error('Failed to refresh room data:', error)
     }

@@ -15,6 +15,12 @@ export default function GameOver() {
   const [countdown, setCountdown] = useState(15);
 
   useEffect(() => {
+    // If no analytics data, redirect immediately
+    if (!state?.analytics) {
+      navigate('/');
+      return;
+    }
+
     // Redirect to home after 15 seconds
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -27,11 +33,10 @@ export default function GameOver() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate]);
+  }, [navigate, state]);
 
   if (!state?.analytics) {
-    // If no analytics data, redirect immediately
-    navigate('/');
+    // Show loading while redirecting
     return null;
   }
 

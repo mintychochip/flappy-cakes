@@ -37,9 +37,21 @@ interface GameRoom {
   gameLoop?: number;
   windowHeight: number;
   gameStartTime?: number;
+  deleteTimeout?: number;
 }
 
 const rooms = new Map<string, GameRoom>();
+
+// Temporarily disabled Firestore integration to fix connection issues
+async function getFirestoreRoomData(roomCode: string) {
+  console.log('Firestore integration disabled - returning empty room data');
+  return null;
+}
+
+async function loadRoomPlayersFromFirestore(roomCode: string): Promise<Map<string, any>> {
+  console.log('Firestore integration disabled - returning empty players map');
+  return new Map();
+}
 
 function broadcast(room: GameRoom, message: unknown, exclude?: string) {
   const msg = JSON.stringify(message);
@@ -191,7 +203,7 @@ function updateGame(room: GameRoom) {
       }
     });
 
-    setTimeout(() => rooms.delete(room.id), 10000);
+    room.deleteTimeout = setTimeout(() => rooms.delete(room.id), 10000);
   }
 }
 
@@ -210,7 +222,7 @@ function stopGameLoop(room: GameRoom) {
   }
 }
 
-function handleConnection(req: Request): Response {
+async function handleConnection(req: Request): Promise<Response> {
   const { socket, response } = Deno.upgradeWebSocket(req);
 
   let playerId: string | null = null;
@@ -221,96 +233,156 @@ function handleConnection(req: Request): Response {
     console.log(`Player connected: ${playerId}`);
   };
 
+  const handleJoinMessage = (data: any) => {
+    // Only join existing rooms - rooms must be created via Cloud Functions
+    const requestedCode = data.roomCode?.toUpperCase();
+
+    if (!requestedCode) {
+      socket.send(JSON.stringify({
+        type: "error",
+        message: "Room code required"
+      }));
+      return;
+    }
+
+    // Try to find existing room with this code
+    let room = Array.from(rooms.values()).find(r => r.code === requestedCode);
+
+    if (!room) {
+      // Room doesn't exist in memory - it should have been created via Cloud Functions
+      // Create it in memory now (the Cloud Function already created it in Firestore)
+      roomId = crypto.randomUUID();
+
+      // Use empty players map for now (Firestore disabled)
+      const existingPlayers = new Map();
+
+      room = {
+        id: roomId,
+        code: requestedCode,
+        players: existingPlayers,
+        state: "waiting",
+        pipes: [],
+        pipeCounter: 0,
+        windowHeight: data.windowHeight || 600
+      };
+      rooms.set(roomId, room);
+      console.log(`Initialized room ${requestedCode} in memory (${roomId}) with empty player list`);
+    } else {
+      roomId = room.id;
+      console.log(`Joined existing room ${requestedCode} (${roomId})`);
+    }
+
+    // Get existing players BEFORE adding the new one
+    const existingPlayers = Array.from(room.players.entries())
+      .map(([id, player]) => ({ id, name: player.name }));
+
+    // Check if a player with this name already exists (from a previous disconnected session)
+    const playerName = data.playerName || `Player${playerId!.substring(0, 6)}`;
+    const existingPlayerWithSameName = Array.from(room.players.values())
+      .find(p => p.name === playerName);
+
+    if (existingPlayerWithSameName) {
+      console.log(`⚠️ Found existing player with same name "${playerName}", removing old player ${existingPlayerWithSameName.id}`);
+      room.players.delete(existingPlayerWithSameName.id);
+    }
+
+    const player = {
+      id: playerId!,
+      name: playerName,
+      ws: socket,
+      score: 0,
+      alive: true,
+      y: GAME_HEIGHT / 2,
+      velocityY: 0,
+      jumping: false
+    };
+
+    room.players.set(playerId!, player);
+    console.log(`✅ Player ${playerName} (${playerId}) added to room. Total players: ${room.players.size}`);
+
+    // Send current room state to the joining player
+    socket.send(JSON.stringify({
+      type: "joined",
+      playerId: playerId,
+      roomId: roomId,
+      roomCode: room.code,
+      playerCount: room.players.size,
+      existingPlayers: existingPlayers
+    }));
+
+    // Notify other players with player name
+    const newPlayer = room.players.get(playerId!)!;
+    broadcast(room, {
+      type: "playerJoined",
+      playerId: playerId,
+      playerName: newPlayer.name,
+      playerCount: room.players.size
+    }, playerId!);
+  };
+
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
+      console.log(`📨 Received message: type=${data.type}, playerId=${playerId}, roomId=${roomId}`);
 
       switch (data.type) {
         case "join": {
-          // Only join existing rooms - rooms must be created via Cloud Functions
-          const requestedCode = data.roomCode?.toUpperCase();
-
-          if (!requestedCode) {
-            socket.send(JSON.stringify({
-              type: "error",
-              message: "Room code required"
-            }));
-            break;
-          }
-
-          // Try to find existing room with this code
-          let room = Array.from(rooms.values()).find(r => r.code === requestedCode);
-
-          if (!room) {
-            // Room doesn't exist in memory - it should have been created via Cloud Functions
-            // Create it in memory now (the Cloud Function already created it in Firestore)
-            roomId = crypto.randomUUID();
-            room = {
-              id: roomId,
-              code: requestedCode,
-              players: new Map(),
-              state: "waiting",
-              pipes: [],
-              pipeCounter: 0,
-              windowHeight: data.windowHeight || 600
-            };
-            rooms.set(roomId, room);
-            console.log(`Initialized room ${requestedCode} in memory (${roomId})`);
-          } else {
-            roomId = room.id;
-            console.log(`Joined existing room ${requestedCode} (${roomId})`);
-          }
-
-          // Get existing players BEFORE adding the new one
-          const existingPlayers = Array.from(room.players.entries())
-            .map(([id, player]) => ({ id, name: player.name }));
-
-          const player: Player = {
-            id: playerId!,
-            name: data.playerName || `Player${playerId!.substring(0, 6)}`,
-            ws: socket,
-            score: 0,
-            alive: true,
-            y: GAME_HEIGHT / 2,
-            velocityY: 0,
-            jumping: false
-          };
-
-          room.players.set(playerId!, player);
-
-          // Send current room state to the joining player
-          socket.send(JSON.stringify({
-            type: "joined",
-            playerId: playerId,
-            roomId: roomId,
-            roomCode: room.code,
-            playerCount: room.players.size,
-            existingPlayers: existingPlayers
-          }));
-
-          // Notify other players with player name
-          const newPlayer = room.players.get(playerId!)!;
-          broadcast(room, {
-            type: "playerJoined",
-            playerId: playerId,
-            playerName: newPlayer.name,
-            playerCount: room.players.size
-          }, playerId!);
-
+          handleJoinMessage(data);
           break;
         }
 
         case "startGame": {
-          if (!roomId) break;
+          console.log(`🎮 startGame message received - playerId: ${playerId}, roomId: ${roomId}`);
+          if (!roomId) {
+            console.log('❌ startGame: no roomId');
+            socket.send(JSON.stringify({
+              type: "error",
+              message: "Not connected to a room. Please refresh and rejoin."
+            }));
+            break;
+          }
           const room = rooms.get(roomId);
-          if (!room) break;
+          if (!room) {
+            console.log('❌ startGame: room not found for roomId:', roomId);
+            socket.send(JSON.stringify({
+              type: "error",
+              message: "Room not found. The room may have been deleted. Please create a new room."
+            }));
+            break;
+          }
+
+          console.log(`🎮 startGame request - room state: ${room.state}, players: ${room.players.size}`);
+
+          // If room is finished, reset it to waiting
+          if (room.state === "finished") {
+            console.log('🔄 Resetting room from finished to waiting');
+            room.state = "waiting";
+            // Cancel deletion timeout
+            if (room.deleteTimeout) {
+              clearTimeout(room.deleteTimeout);
+              room.deleteTimeout = undefined;
+            }
+            // Reset all players
+            for (const player of room.players.values()) {
+              player.alive = true;
+              player.score = 0;
+              player.y = GAME_HEIGHT / 2;
+              player.velocityY = 0;
+            }
+            // Clear pipes
+            room.pipes = [];
+            room.pipeCounter = 0;
+          }
 
           // Only allow starting if waiting and has players
           if (room.state === "waiting" && room.players.size >= 1) {
+            console.log('✅ Starting game!');
             room.state = "playing";
             room.gameStartTime = Date.now();
             broadcast(room, { type: "gameStart" });
             startGameLoop(room);
+          } else {
+            console.log(`❌ Cannot start - state: ${room.state}, players: ${room.players.size}`);
           }
           break;
         }
@@ -338,10 +410,13 @@ function handleConnection(req: Request): Response {
   };
 
   socket.onclose = () => {
+    console.log(`🔌 WebSocket closed for player ${playerId}, roomId: ${roomId}`);
     if (roomId && playerId) {
       const room = rooms.get(roomId);
       if (room) {
-        room.players.delete(playerId);
+        const wasDeleted = room.players.delete(playerId);
+        console.log(`${wasDeleted ? '✅' : '❌'} Removed player ${playerId} from room. Remaining: ${room.players.size}`);
+
         broadcast(room, {
           type: "playerLeft",
           playerId: playerId,
@@ -350,12 +425,12 @@ function handleConnection(req: Request): Response {
 
         // Clean up empty rooms
         if (room.players.size === 0) {
+          console.log(`🗑️ Room ${roomId} is empty, deleting...`);
           stopGameLoop(room);
           rooms.delete(roomId);
         }
       }
     }
-    console.log(`Player disconnected: ${playerId}`);
   };
 
   return response;

@@ -289,6 +289,7 @@ async function handleConnection(req: Request): Promise<Response> {
       room.players.delete(existingPlayerWithSameName.id);
     }
 
+    console.log(`🎨 Join message received - skinId: ${data.skinId}, playerName: ${playerName}`);
     const player = {
       id: playerId!,
       name: playerName,
@@ -300,6 +301,7 @@ async function handleConnection(req: Request): Promise<Response> {
       jumping: false,
       skinId: data.skinId || 'character1'
     };
+    console.log(`🎨 Player created with skinId: ${player.skinId}`);
 
     room.players.set(playerId!, player);
     console.log(`✅ Player ${playerName} (${playerId}) added to room. Total players: ${room.players.size}`);
@@ -401,6 +403,20 @@ async function handleConnection(req: Request): Promise<Response> {
 
           // Update input state
           player.jumping = data.jumping;
+          break;
+        }
+
+        case "updateSkin": {
+          if (!roomId) break;
+          const room = rooms.get(roomId);
+          if (!room) break;
+
+          const player = room.players.get(playerId!);
+          if (!player) break;
+
+          // Update player skin
+          player.skinId = data.skinId || 'character1';
+          console.log(`🎨 Player ${player.name} updated skin to ${player.skinId}`);
           break;
         }
 

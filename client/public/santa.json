@@ -1,0 +1,20 @@
+{
+  "frames": {
+    "santa": {
+      "frame": {"x": 5, "y": 50, "w": 155, "h": 420}
+    },
+    "santa-idle": {
+      "frame": {"x": 5, "y": 50, "w": 155, "h": 420}
+    },
+    "santa-flying": {
+      "frame": {"x": 172, "y": 50, "w": 155, "h": 420}
+    },
+    "santa-boosting": {
+      "frame": {"x": 339, "y": 50, "w": 155, "h": 420}
+    }
+  },
+  "meta": {
+    "image": "content.png",
+    "scale": "1"
+  }
+}

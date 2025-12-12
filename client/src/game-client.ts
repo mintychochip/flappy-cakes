@@ -87,6 +87,12 @@ export class GameClient {
 
             this.ws.onopen = () => {
                 console.log('✅ Connected to server, sending join message...');
+                console.log('🎨 Join message data:', {
+                    type: 'join',
+                    roomCode: this.roomCode,
+                    playerName: this.playerName || 'Anonymous',
+                    skinId: this.skinId
+                });
                 this.reconnectAttempts = 0;
                 this.send({
                     type: 'join',

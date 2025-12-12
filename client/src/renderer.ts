@@ -27,7 +27,9 @@ const PIPE_GAP = 200;
 const PIPE_SPEED = 3;
 const GRAVITY = 0.25;
 const JUMP_POWER = -6;
-const PLAYER_RADIUS = 32;
+const PLAYER_RADIUS = 40;
+const PLAYER_WIDTH = 80;  // Width of sprite
+const PLAYER_HEIGHT = 120; // Height of sprite (taller)
 const HITBOX_BUFFER = 2;
 const EFFECTIVE_RADIUS = PLAYER_RADIUS - HITBOX_BUFFER;
 const GROUND_HEIGHT = 50;
@@ -133,12 +135,17 @@ export class GameRenderer {
 
     private async loadSpriteSheet() {
         try {
-            console.log('🎨 Loading sprite sheet...');
-            await Assets.load('/sprites.json');
+            console.log('🎨 Loading sprite sheets...');
+            const sprites = await Assets.load('/sprites.json');
+            console.log('✅ sprites.json loaded, frames:', Object.keys(sprites.textures || {}));
+
+            const santa = await Assets.load('/santa.json');
+            console.log('✅ santa.json loaded, frames:', Object.keys(santa.textures || {}));
+
             this.spriteSheetLoaded = true;
-            console.log('✅ Sprite sheet loaded successfully');
+            console.log('✅ All sprite sheets loaded successfully');
         } catch (error) {
-            console.warn('⚠️ Sprite sheet not found, using fallback flappy-bird.png:', error);
+            console.error('❌ Sprite sheets failed to load:', error);
             this.spriteSheetLoaded = false;
         }
     }
@@ -216,8 +223,8 @@ export class GameRenderer {
         const bird = new Sprite(texture);
 
         // Stretch to match hitbox
-        bird.width = PLAYER_RADIUS * 2;
-        bird.height = PLAYER_RADIUS * 2;
+        bird.width = PLAYER_WIDTH;
+        bird.height = PLAYER_HEIGHT;
 
         // Center the sprite
         bird.anchor.set(0.5, 0.5);
@@ -394,7 +401,11 @@ export class GameRenderer {
         console.log(`🎬 Updating texture: jumping=${player.jumping}, frameName=${frameName}`);
 
         try {
-            const spriteSheet = Assets.cache.get('/sprites.json');
+            // Try santa sprite sheet first if it's santa
+            let spriteSheet = baseSkin === 'santa'
+                ? Assets.cache.get('/santa.json')
+                : Assets.cache.get('/sprites.json');
+
             if (spriteSheet?.textures?.[frameName]) {
                 player.birdSprite.texture = spriteSheet.textures[frameName];
                 console.log(`✅ Texture updated to ${frameName}`);
@@ -551,12 +562,17 @@ export class GameRenderer {
 
         // Load and add bird sprite based on skinId
         let texture;
-        const frameName = skinId || 'character1';
+        const baseSkinId = skinId || 'character1';
+        const frameName = `${baseSkinId}-idle`;
         console.log(`🎨 Loading skin ${frameName} for player ${name}, spriteSheetLoaded=${this.spriteSheetLoaded}`);
 
         if (this.spriteSheetLoaded) {
             try {
-                const spriteSheet = Assets.cache.get('/sprites.json');
+                // Use santa.json for santa, sprites.json for character1
+                const spriteSheet = baseSkinId === 'santa'
+                    ? Assets.cache.get('/santa.json')
+                    : Assets.cache.get('/sprites.json');
+
                 if (spriteSheet?.textures?.[frameName]) {
                     texture = spriteSheet.textures[frameName];
                     console.log(`✅ Loaded ${frameName} from sprite sheet`);
@@ -576,8 +592,8 @@ export class GameRenderer {
 
         const bird = new Sprite(texture);
 
-        bird.width = PLAYER_RADIUS * 2;
-        bird.height = PLAYER_RADIUS * 2;
+        bird.width = PLAYER_WIDTH;
+        bird.height = PLAYER_HEIGHT;
         bird.anchor.set(0.5, 0.5);
         bird.alpha = 1.0; // Ensure bird sprite itself is fully opaque
 

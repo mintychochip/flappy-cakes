@@ -45,135 +45,153 @@ export default function GameOver() {
   const isTopThree = analytics.placement <= 3;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black flex items-center justify-center p-8">
-      <div className="max-w-4xl w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className={`text-6xl font-black mb-4 ${
+    <div className="min-h-screen bg-purple-900 flex flex-col">
+      {/* Header */}
+      <div className="bg-purple-800 border-b-4 border-black p-6">
+        <div className="text-center">
+          <h1 className="text-7xl font-black text-yellow-400 leading-none mb-4">
+            FLAPPY CAKES
+          </h1>
+          <div className={`text-5xl font-black ${
             isWinner ? 'text-yellow-400' : isTopThree ? 'text-blue-400' : 'text-white'
           }`}>
-            {isWinner && '🏆 VICTORY! 🏆'}
-            {!isWinner && isTopThree && '🥈 TOP 3! 🥉'}
+            {isWinner && 'VICTORY!'}
+            {!isWinner && isTopThree && 'TOP 3!'}
             {!isWinner && !isTopThree && 'GAME OVER'}
-          </h1>
-          <p className="text-white text-xl opacity-75">
-            Redirecting to home in {countdown}s...
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
-            <div className="text-4xl font-black text-yellow-400 mb-2">
-              #{analytics.placement}
-            </div>
-            <div className="text-white text-sm opacity-75">Placement</div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
-            <div className="text-4xl font-black text-blue-400 mb-2">
-              {analytics.finalScore}
-            </div>
-            <div className="text-white text-sm opacity-75">Score</div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
-            <div className="text-4xl font-black text-green-400 mb-2">
-              {analytics.survived}s
-            </div>
-            <div className="text-white text-sm opacity-75">Survived</div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
-            <div className="text-4xl font-black text-purple-400 mb-2">
-              {analytics.pipesCleared}
-            </div>
-            <div className="text-white text-sm opacity-75">Pipes Cleared</div>
           </div>
         </div>
+      </div>
 
-        {/* Leaderboard */}
-        <div className="bg-white/10 backdrop-blur rounded-lg p-6 mb-8">
-          <h2 className="text-white text-2xl font-bold mb-4">Final Leaderboard</h2>
-          <div className="space-y-2">
-            {finalScores.map((player, index) => (
-              <div
-                key={player.id}
-                className={`flex items-center justify-between p-4 rounded-lg ${
-                  index === 0
-                    ? 'bg-gradient-to-r from-yellow-600 to-yellow-500'
-                    : index === 1
-                    ? 'bg-gradient-to-r from-gray-400 to-gray-300'
-                    : index === 2
-                    ? 'bg-gradient-to-r from-orange-600 to-orange-500'
-                    : 'bg-white/5'
-                }`}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="text-2xl font-black text-white w-8">
-                    #{index + 1}
+      {/* Main content */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-5xl w-full space-y-6">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-yellow-400 border-4 border-black p-6 text-center">
+              <div className="text-purple-900 text-xs font-bold mb-1">PLACEMENT</div>
+              <div className="text-6xl font-black text-purple-900">
+                #{analytics.placement}
+              </div>
+            </div>
+
+            <div className="bg-yellow-400 border-4 border-black p-6 text-center">
+              <div className="text-purple-900 text-xs font-bold mb-1">SCORE</div>
+              <div className="text-6xl font-black text-purple-900">
+                {analytics.finalScore}
+              </div>
+            </div>
+
+            <div className="bg-yellow-400 border-4 border-black p-6 text-center">
+              <div className="text-purple-900 text-xs font-bold mb-1">SURVIVED</div>
+              <div className="text-6xl font-black text-purple-900">
+                {analytics.survived}s
+              </div>
+            </div>
+
+            <div className="bg-yellow-400 border-4 border-black p-6 text-center">
+              <div className="text-purple-900 text-xs font-bold mb-1">PIPES</div>
+              <div className="text-6xl font-black text-purple-900">
+                {analytics.pipesCleared}
+              </div>
+            </div>
+          </div>
+
+          {/* Leaderboard */}
+          <div className="bg-yellow-400 border-4 border-black p-6">
+            <h2 className="text-purple-900 text-3xl font-black mb-4">FINAL STANDINGS</h2>
+            <div className="space-y-2">
+              {finalScores.map((player, index) => (
+                <div
+                  key={player.id}
+                  className={`flex items-center justify-between p-4 border-4 border-black font-bold ${
+                    index === 0
+                      ? 'bg-yellow-500'
+                      : index === 1
+                      ? 'bg-gray-300'
+                      : index === 2
+                      ? 'bg-orange-400'
+                      : 'bg-purple-600'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className={`text-3xl font-black w-12 ${index < 3 ? 'text-purple-900' : 'text-yellow-400'}`}>
+                      #{index + 1}
+                    </div>
+                    <div className={`font-black text-lg ${index < 3 ? 'text-purple-900' : 'text-white'}`}>
+                      {player.name || `Player ${player.id.substring(0, 6)}`}
+                    </div>
                   </div>
-                  <div className="text-white font-bold">
-                    {player.name || `Player ${player.id.substring(0, 6)}`}
+                  <div className={`text-2xl font-black ${index < 3 ? 'text-purple-900' : 'text-yellow-400'}`}>
+                    {player.score}
                   </div>
                 </div>
-                <div className="text-white text-xl font-bold">
-                  {player.score} pts
+              ))}
+            </div>
+          </div>
+
+          {/* Performance Stats */}
+          <div className="bg-yellow-400 border-4 border-black p-6">
+            <h3 className="text-purple-900 text-2xl font-black mb-4">YOUR STATS</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-purple-600 border-4 border-black p-4 text-center">
+                <div className="text-yellow-400 text-sm font-bold mb-1">PIPES/MIN</div>
+                <div className="text-white text-3xl font-black">
+                  {analytics.survived > 0
+                    ? ((analytics.pipesCleared / analytics.survived) * 60).toFixed(1)
+                    : 0}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Performance breakdown */}
-        <div className="bg-white/10 backdrop-blur rounded-lg p-6 mb-8">
-          <h3 className="text-white text-xl font-bold mb-4">Performance</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-white">
-              <span className="opacity-75">Average pipes/minute:</span>
-              <span className="font-bold">
-                {analytics.survived > 0
-                  ? ((analytics.pipesCleared / analytics.survived) * 60).toFixed(1)
-                  : 0}
-              </span>
-            </div>
-            <div className="flex justify-between text-white">
-              <span className="opacity-75">Players defeated:</span>
-              <span className="font-bold">
-                {analytics.totalPlayers - analytics.placement}
-              </span>
-            </div>
-            <div className="flex justify-between text-white">
-              <span className="opacity-75">Beat percentage:</span>
-              <span className="font-bold">
-                {analytics.totalPlayers > 1
-                  ? (((analytics.totalPlayers - analytics.placement) / (analytics.totalPlayers - 1)) * 100).toFixed(0)
-                  : 0}%
-              </span>
+              <div className="bg-purple-600 border-4 border-black p-4 text-center">
+                <div className="text-yellow-400 text-sm font-bold mb-1">DEFEATED</div>
+                <div className="text-white text-3xl font-black">
+                  {analytics.totalPlayers - analytics.placement}
+                </div>
+              </div>
+              <div className="bg-purple-600 border-4 border-black p-4 text-center">
+                <div className="text-yellow-400 text-sm font-bold mb-1">WIN RATE</div>
+                <div className="text-white text-3xl font-black">
+                  {analytics.totalPlayers > 1
+                    ? (((analytics.totalPlayers - analytics.placement) / (analytics.totalPlayers - 1)) * 100).toFixed(0)
+                    : 0}%
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate('/')}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-lg text-xl transition-all"
-          >
-            Play Again
-          </button>
-          <button
-            onClick={() => {
-              // Share results (could integrate with social media)
-              const text = `I scored ${analytics.finalScore} points and placed #${analytics.placement} in Flappy Cakes! 🎮`;
-              navigator.clipboard.writeText(text);
-              alert('Results copied to clipboard!');
-            }}
-            className="bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-8 rounded-lg text-xl transition-all"
-          >
-            Share 📋
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-black py-6 px-8 border-4 border-black text-2xl"
+            >
+              PLAY AGAIN
+            </button>
+            <button
+              onClick={() => {
+                const text = `I placed #${analytics.placement} with ${analytics.finalScore} points in Flappy Cakes!`;
+                navigator.clipboard.writeText(text);
+                alert('Results copied to clipboard!');
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black py-6 px-8 border-4 border-black text-2xl"
+            >
+              SHARE
+            </button>
+          </div>
+
+          {/* Countdown */}
+          <div className="text-center">
+            <div className="text-yellow-400 font-bold text-lg">
+              Returning home in {countdown}s...
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-purple-800 border-t-4 border-black p-6 text-center">
+        <p className="text-yellow-400 font-bold text-lg">
+          Thanks for playing!
+        </p>
       </div>
     </div>
   );
